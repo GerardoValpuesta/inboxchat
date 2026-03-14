@@ -171,6 +171,7 @@
 
   function connectSocket() {
     var socket = window.io(SERVER_URL, {
+      transports: ["websocket"],
       autoConnect: true,
       reconnection: true,
       reconnectionDelay: 1500,
