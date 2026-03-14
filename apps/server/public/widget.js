@@ -32,15 +32,21 @@
   }
 
   // ─── Estado ────────────────────────────────────────────────────────────────
+  // Clave de localStorage por workspace para no mezclar conversaciones entre sitios
+  var LS = "ic_" + WORKSPACE_KEY;
+
+  function lsGet(k) { try { return localStorage.getItem(LS + k); } catch(_) { return null; } }
+  function lsSet(k, v) { try { localStorage.setItem(LS + k, v); } catch(_) {} }
+
   var state = {
     socket: null,
-    conversationId: null,
+    conversationId: lsGet("_cid") || null,   // restaurado entre sesiones
     isOpen: false,
     isConnected: false,
     messages: [],
     operatorOnline: false,
-    preChatDone: false,     // se vuelve true cuando el visitante envió el pre-chat form
-    preChatContact: null,   // { name, email } capturado del form
+    preChatDone: !!lsGet("_pcd"),             // true si el visitante ya pasó el form
+    preChatContact: null,
   };
 
   // ─── UI ────────────────────────────────────────────────────────────────────
@@ -272,6 +278,7 @@
       function (result) {
         if (result.ok) {
           state.conversationId = result.conversation.id;
+          lsSet("_cid", state.conversationId);  // persistir para recargas
         } else if (result.error === "trial_expired" || result.error === "trial_limit_reached") {
           // Mostrar panel de trial expirado al visitante
           showTrialExpiredUI(result.error);
@@ -329,13 +336,19 @@
     createStyles();
     var ui = createWidget();
 
+    // Si el visitante ya pasó el pre-chat (sesión anterior), ocultar el form de entrada
+    if (state.preChatDone || state.conversationId) {
+      var existingPrechat = document.getElementById("ic-prechat");
+      if (existingPrechat) existingPrechat.style.display = "none";
+    }
+
     // Toggle del panel
     ui.btn.addEventListener("click", function () {
       state.isOpen = !state.isOpen;
       document.getElementById("ic-panel").classList.toggle("open", state.isOpen);
 
       // Solo conectar el socket si ya se completó el pre-chat (o si ya existe conv)
-      if (state.isOpen && !state.socket && state.preChatDone) {
+      if (state.isOpen && !state.socket && (state.preChatDone || state.conversationId)) {
         loadSocketIO(connectSocket);
       }
     });
@@ -354,6 +367,7 @@
       var email = skip ? "" : (document.getElementById("ic-email").value.trim() || "");
       state.preChatContact = (name || email) ? { name: name, email: email } : null;
       state.preChatDone = true;
+      lsSet("_pcd", "1");  // persistir para recargas
       // Ocultar el pre-chat form, mostrar chat normal
       var preChatEl = document.getElementById("ic-prechat");
       if (preChatEl) preChatEl.style.display = "none";

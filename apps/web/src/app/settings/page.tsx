@@ -310,6 +310,21 @@ export default function SettingsPage() {
                     />
                   </div>
                 </div>
+                {/* Toggle GDPR */}
+                <div className="flex items-center justify-between py-2 border-t border-slate-100">
+                  <div>
+                    <p className="text-xs font-medium text-slate-700">Solicitar consentimiento GDPR</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Muestra un checkbox en el pre-chat form</p>
+                  </div>
+                  <button
+                    onClick={() => setWidgetGdpr(!widgetGdpr)}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${widgetGdpr ? "bg-violet-600" : "bg-slate-200"}`}
+                    role="switch"
+                    aria-checked={widgetGdpr}
+                  >
+                    <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${widgetGdpr ? "translate-x-4.5" : "translate-x-0.5"}`} />
+                  </button>
+                </div>
                 <button
                   onClick={() => void saveWidgetConfig()}
                   disabled={savingWidget}
