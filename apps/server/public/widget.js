@@ -171,6 +171,9 @@
 
   function connectSocket() {
     var socket = window.io(SERVER_URL, {
+      // Railway's proxy drops WebSocket upgrades inconsistently from same-origin.
+      // Polling is slower but stable — ensures conversationId stays on the same session.
+      transports: ["polling"],
       autoConnect: true,
       reconnection: true,
       reconnectionDelay: 1500,
