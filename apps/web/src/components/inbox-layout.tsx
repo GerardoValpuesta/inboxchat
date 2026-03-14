@@ -33,15 +33,21 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
     if (loadedConversations.current) return;
     loadedConversations.current = true;
 
-    fetch(`${SERVER_URL}/api/conversations`, { headers: getAuthHeaders() })
-      .then((r) => r.json())
-      .then((data: { conversations: Conversation[] }) => {
-        setConversations(data.conversations ?? []);
-      })
-      .catch((err: unknown) => {
-        console.error("[inbox] Error cargando conversaciones:", err);
-        setConversations([]);
-      });
+    const loadConversations = () => {
+      fetch(`${SERVER_URL}/api/conversations`, { headers: getAuthHeaders() })
+        .then((r) => r.json())
+        .then((data: { conversations: Conversation[] }) => {
+          setConversations(data.conversations ?? []);
+        })
+        .catch((err: unknown) => {
+          console.error("[inbox] Error cargando conversaciones:", err);
+        });
+    };
+
+    loadConversations();
+    // Polling de backup — refresca cada 10s si el socket no entrega message:new
+    const interval = setInterval(loadConversations, 10_000);
+    return () => clearInterval(interval);
   }, [setConversations]);
 
   // Cargar mensajes al seleccionar una conversación

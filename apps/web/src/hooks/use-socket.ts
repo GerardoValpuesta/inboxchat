@@ -74,6 +74,15 @@ export function useSocket(workspaceId: string) {
 
     socket.on("message:received", ({ message }) => {
       addMessage(message);
+      // También actualizar el sidebar — message:received solo llega para la conversación activa,
+      // así que usamos activeConversationId del store para identificarla
+      const activeId = useInboxStore.getState().activeConversationId;
+      if (activeId) {
+        updateConversation(activeId, {
+          lastMessage: message,
+          updatedAt: message.createdAt,
+        });
+      }
     });
 
     // ─── Cleanup ──────────────────────────────────────────────────────────
