@@ -69,6 +69,12 @@ export default function LandingPage() {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             <Link
+              href="/pricing"
+              style={{ fontSize: "14px", color: "#64748b", textDecoration: "none", fontWeight: 500 }}
+            >
+              Precios
+            </Link>
+            <Link
               href="/login"
               style={{ fontSize: "14px", color: "#64748b", textDecoration: "none", fontWeight: 500 }}
             >
@@ -482,7 +488,8 @@ export default function LandingPage() {
       {/* Footer */}
       <footer style={{ padding: "24px", textAlign: "center", borderTop: "1px solid #e2e8f0", background: "white" }}>
         <p style={{ fontSize: "13px", color: "#94a3b8" }}>
-          © 2025 InboxChat · Todos los derechos reservados{" "}
+      © 2025 InboxChat · Todos los derechos reservados{" "}
+          <Link href="/pricing" style={{ color: "#94a3b8", textDecoration: "none" }}>· Precios</Link>{" "}
           <Link href="/privacy" style={{ color: "#94a3b8", textDecoration: "none" }}>· Privacidad</Link>{" "}
           <Link href="/terms" style={{ color: "#94a3b8", textDecoration: "none" }}>· Términos</Link>{" "}
           <Link href="/login" style={{ color: "#94a3b8", textDecoration: "none" }}>· Login</Link>
