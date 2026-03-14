@@ -71,7 +71,7 @@ export async function getConversationWithContact(
   return (row ?? null) as (Conversation & { contact: Contact }) | null;
 }
 
-export async function listOpenConversations(
+export async function listConversations(
   db: Database,
   workspaceId: string,
   limit = 50
@@ -121,12 +121,14 @@ export async function listOpenConversations(
       ) AS "lastMessage"
     FROM conversations c
     WHERE c.workspace_id = ${workspaceId}
-      AND c.status = 'open'
     ORDER BY c.updated_at DESC
     LIMIT ${limit}
   `;
   return rows as unknown as Array<Conversation & { contact: Contact; lastMessage: Message | null }>;
 }
+
+// Alias para backwards compat (dashboard.routes.ts)
+export const listOpenConversations = listConversations;
 
 export async function markConversationRead(db: Database, conversationId: string) {
   await db`

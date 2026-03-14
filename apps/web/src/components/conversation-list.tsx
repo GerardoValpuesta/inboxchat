@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useInboxStore, selectActiveConversation } from "@/store/inbox.store";
 import { cn, getInitials, timeAgo, truncate } from "@/lib/utils";
 import type { Conversation } from "@inboxchat/shared";
@@ -79,37 +81,61 @@ export function ConversationList() {
   const setActiveConversation = useInboxStore((s) => s.setActiveConversation);
   const markConversationRead = useInboxStore((s) => s.markConversationRead);
   const isConnected = useInboxStore((s) => s.isConnected);
+  const router = useRouter();
+  const [filter, setFilter] = useState<"open" | "closed">("open");
 
   function handleSelectConversation(conversationId: string) {
     setActiveConversation(conversationId);
     markConversationRead(conversationId);
   }
 
+  function handleLogout() {
+    localStorage.removeItem("ic_token");
+    document.cookie = "ic_token=; path=/; max-age=0; SameSite=Lax";
+    router.push("/login");
+  }
+
+  const filtered = conversations.filter((c) =>
+    filter === "open" ? c.status === "open" || !c.status : c.status === "closed"
+  );
+
   return (
     <aside className="w-72 flex-shrink-0 bg-white border-r border-slate-200 flex flex-col h-full">
       {/* Header */}
-      <div className="px-4 py-4 border-b border-slate-200 flex items-center justify-between">
-        <div>
+      <div className="px-4 py-3 border-b border-slate-200">
+        <div className="flex items-center justify-between mb-3">
           <h1 className="text-base font-semibold text-slate-900">Inbox</h1>
-          <p className="text-xs text-slate-500">{conversations.length} conversaciones</p>
+          <div className="flex items-center gap-1.5">
+            <div className={cn("w-2 h-2 rounded-full", isConnected ? "bg-brand-500" : "bg-slate-300")} />
+            <span className="text-xs text-slate-500">{isConnected ? "online" : "offline"}</span>
+          </div>
         </div>
-        {/* Indicador de conexión */}
-        <div className="flex items-center gap-1.5">
-          <div
+        {/* Tabs open/closed */}
+        <div className="flex bg-slate-100 rounded-lg p-0.5">
+          <button
+            onClick={() => setFilter("open")}
             className={cn(
-              "w-2 h-2 rounded-full",
-              isConnected ? "bg-brand-500" : "bg-slate-300"
+              "flex-1 text-xs font-medium py-1.5 rounded-md transition-all",
+              filter === "open" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
             )}
-          />
-          <span className="text-xs text-slate-500">
-            {isConnected ? "conectado" : "sin conexión"}
-          </span>
+          >
+            Abiertas
+          </button>
+          <button
+            onClick={() => setFilter("closed")}
+            className={cn(
+              "flex-1 text-xs font-medium py-1.5 rounded-md transition-all",
+              filter === "closed" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+            )}
+          >
+            Resueltas
+          </button>
         </div>
       </div>
 
       {/* Lista */}
       <div className="flex-1 overflow-y-auto">
-        {conversations.length === 0 ? (
+        {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 px-4 text-center">
             <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center mb-3">
               <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -117,13 +143,15 @@ export function ConversationList() {
                   d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
               </svg>
             </div>
-            <p className="text-sm font-medium text-slate-600">Sin conversaciones</p>
+            <p className="text-sm font-medium text-slate-600">
+              {filter === "open" ? "Sin conversaciones abiertas" : "Sin conversaciones resueltas"}
+            </p>
             <p className="text-xs text-slate-400 mt-1">
-              Cuando alguien abra el widget, aparecerá aquí
+              {filter === "open" ? "Cuando alguien abra el widget, aparecerá aquí" : "Las resueltas aparecerán aquí"}
             </p>
           </div>
         ) : (
-          conversations.map((conv) => (
+          filtered.map((conv) => (
             <ConversationItem
               key={conv.id}
               conversation={conv}
@@ -157,6 +185,16 @@ export function ConversationList() {
           </svg>
           Billing
         </Link>
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors w-full text-left"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          Cerrar sesión
+        </button>
       </div>
     </aside>
   );

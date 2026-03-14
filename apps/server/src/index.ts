@@ -93,10 +93,12 @@ async function bootstrap() {
   const { stripeWebhookRoute } = await import("./routes/stripe.webhook.js");
   const { signupRoute } = await import("./routes/signup.route.js");
   const { workspaceRoutes } = await import("./routes/workspace.routes.js");
+  const { passwordResetRoutes } = await import("./routes/password-reset.routes.js");
   // El webhook de Stripe necesita raw body — registrarlo ANTES que helmet parsee el body
   await app.register(stripeWebhookRoute, { db });
   await app.register(authRoutes, { db });
   await app.register(signupRoute, { db });
+  await app.register(passwordResetRoutes, { db });
   await app.register(dashboardRoutes, { db });
   await app.register(billingRoutes, { db });
   await app.register(workspaceRoutes, { db });

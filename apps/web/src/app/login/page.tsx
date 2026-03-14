@@ -84,9 +84,14 @@ export default function LoginPage() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="password" className="text-sm font-medium text-slate-700">
-                Contraseña
-              </label>
+              <div className="flex items-center justify-between">
+                <label htmlFor="password" className="text-sm font-medium text-slate-700">
+                  Contraseña
+                </label>
+                <Link href="/forgot-password" className="text-xs text-violet-600 hover:underline">
+                  ¿Olvidaste tu contraseña?
+                </Link>
+              </div>
               <input
                 id="password"
                 type="password"
@@ -116,8 +121,8 @@ export default function LoginPage() {
 
         <p className="text-center text-sm text-slate-500 mt-4">
           No tenés cuenta?{" "}
-          <Link href="/register" className="text-slate-800 font-medium hover:underline">
-            Registrate
+          <Link href="/signup" className="text-violet-600 font-medium hover:underline">
+            Empezar gratis
           </Link>
         </p>
       </div>
