@@ -105,7 +105,14 @@ async function bootstrap() {
     SocketData
   >(app.server, {
     cors: {
-      origin: env.WEB_URL,
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (origin === env.WEB_URL) return callback(null, true);
+        if (origin === "http://localhost:3000") return callback(null, true);
+        if (origin === "http://localhost:3001") return callback(null, true);
+        if (origin.endsWith(".vercel.app")) return callback(null, true);
+        callback(new Error(`Socket.io CORS: origin no permitido: ${origin}`), false);
+      },
       credentials: true,
     },
     pingTimeout: 30000,
