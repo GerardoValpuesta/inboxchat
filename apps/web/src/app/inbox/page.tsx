@@ -1,22 +1,35 @@
-import type { Metadata } from "next";
+"use client";
+
+import { useEffect, useState } from "react";
 import { InboxLayout } from "@/components/inbox-layout";
 
-export const metadata: Metadata = {
-  title: "Inbox — InboxChat",
-};
-
 /**
- * Ruta del inbox: /inbox
- *
- * Server Component — puede hacer fetch de datos iniciales.
- * Todo lo que sea interactivo (Socket.io, estado) vive en InboxLayout (Client Component).
- *
- * Por ahora el workspaceId viene hardcodeado para el MVP.
- * En una versión posterior vendrá de la sesión del usuario autenticado.
+ * Página del inbox — lee el workspaceId del JWT en localStorage.
+ * El workspaceId se embebe en el JWT al hacer login/register.
  */
 export default function InboxPage() {
-  // TODO: Obtener de la sesión cuando exista auth
-  const workspaceId = process.env["DEFAULT_WORKSPACE_ID"] ?? "dev-workspace";
+  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem("ic_token");
+    if (!token) return;
+
+    try {
+      // El JWT tiene 3 partes separadas por punto: header.payload.signature
+      // El payload es base64url — lo decodificamos para leer el workspaceId
+      const payload = token.split(".")[1];
+      if (!payload) return;
+      const decoded = JSON.parse(atob(payload)) as { workspaceId?: string };
+      setWorkspaceId(decoded.workspaceId ?? null);
+    } catch {
+      // Token malformado — el middleware de Next.js ya levanta a /login
+    }
+  }, []);
+
+  if (!workspaceId) {
+    // Mientras decodifica el token (< 1ms) mostramos nada
+    return null;
+  }
 
   return <InboxLayout workspaceId={workspaceId} />;
 }
