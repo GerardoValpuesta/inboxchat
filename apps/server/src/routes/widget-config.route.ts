@@ -19,11 +19,12 @@ export async function widgetConfigRoute(
       const [workspace] = await db<{
         widget_title: string;
         widget_color: string;
+        widget_welcome_message: string;
         name: string;
         plan: string;
         trial_ends_at: string | null;
       }[]>`
-        SELECT widget_title, widget_color, name, plan, trial_ends_at
+        SELECT widget_title, widget_color, widget_welcome_message, name, plan, trial_ends_at
         FROM workspaces
         WHERE api_key = ${key}
         LIMIT 1
@@ -36,6 +37,7 @@ export async function widgetConfigRoute(
       return reply.send({
         title: workspace.widget_title ?? "Soporte",
         color: workspace.widget_color ?? "#1e293b",
+        welcomeMessage: workspace.widget_welcome_message ?? "¡Hola! 👋 ¿En qué podemos ayudarte?",
         workspaceName: workspace.name,
       });
     }
@@ -44,7 +46,7 @@ export async function widgetConfigRoute(
   // ─── PATCH /api/workspace/widget — actualiza config del widget ───────────
   // Requiere Auth (Bearer JWT o X-Workspace-Key)
   app.patch<{
-    Body: { title?: string; color?: string };
+    Body: { title?: string; color?: string; welcomeMessage?: string };
   }>("/api/workspace/widget", async (request, reply) => {
     // Resolución de workspaceId por JWT o header
     const authHeader = request.headers["authorization"] as string | undefined;
@@ -70,13 +72,14 @@ export async function widgetConfigRoute(
 
     if (!workspaceId) return reply.status(401).send({ error: "No autenticado" });
 
-    const { title, color } = request.body;
+    const { title, color, welcomeMessage } = request.body;
 
     await db`
       UPDATE workspaces
       SET
         widget_title = COALESCE(${title ?? null}, widget_title),
-        widget_color = COALESCE(${color ?? null}, widget_color)
+        widget_color = COALESCE(${color ?? null}, widget_color),
+        widget_welcome_message = COALESCE(${welcomeMessage ?? null}, widget_welcome_message)
       WHERE id = ${workspaceId}
     `;
 

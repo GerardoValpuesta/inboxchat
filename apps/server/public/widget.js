@@ -23,6 +23,7 @@
   // Branding — se actualiza desde el servidor via fetchConfig()
   var widgetTitle = config.title || "Soporte";
   var widgetColor = config.color || "#1e293b";
+  var widgetWelcome = config.welcomeMessage || "¡Hola! 👋 ¿En qué podemos ayudarte?";
 
   if (!WORKSPACE_KEY) {
     console.error("[InboxChat] workspaceKey es requerido");
@@ -109,7 +110,7 @@
       '<div id="ic-messages">',
       '  <div id="ic-empty">',
       '    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="#cbd5e1" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>',
-      "    <p>Hola! Como podemos ayudarte?</p>",
+      '    <p id="ic-welcome-text">' + escapeHtml(widgetWelcome) + '</p>',
       "  </div>",
       "</div>",
       '<div id="ic-input-area">',
@@ -348,6 +349,7 @@
             var brandEl = document.getElementById("ic-brand-color");
             if (brandEl) brandEl.textContent = ":root { --ic-primary: " + cfg.color + "; }";
           }
+          if (cfg.welcomeMessage) widgetWelcome = cfg.welcomeMessage;
         } catch (_) { /* ignorar errores de parseo */ }
       }
       callback();

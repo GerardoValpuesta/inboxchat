@@ -29,6 +29,14 @@ export function useSocket(workspaceId: string) {
   const { setConnected, addConversation, addMessage, updateConversation } =
     useInboxStore();
 
+  // Pedir permiso de notifications al montar el hook
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if ("Notification" in window && Notification.permission === "default") {
+      void Notification.requestPermission();
+    }
+  }, []);
+
   useEffect(() => {
     // Crear la conexión una sola vez (strict mode monta dos veces en dev — el cleanup lo maneja)
     const socket: AppSocket = io(
@@ -70,6 +78,22 @@ export function useSocket(workspaceId: string) {
         updatedAt: message.createdAt,
         lastMessage: message,
       });
+
+      // Browser notification cuando el operador tiene el inbox en background
+      if (
+        message.sender === "contact" &&
+        typeof window !== "undefined" &&
+        document.hidden &&
+        "Notification" in window &&
+        Notification.permission === "granted"
+      ) {
+        const body = message.body.length > 80 ? message.body.slice(0, 80) + "..." : message.body;
+        new Notification("Nuevo mensaje en InboxChat", {
+          body,
+          icon: "/favicon.ico",
+          tag: conversationId, // agrupa notificaciones de la misma conv
+        });
+      }
     });
 
     socket.on("message:received", ({ message }) => {
