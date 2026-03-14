@@ -122,7 +122,7 @@ export default function LoginPage() {
         <p className="text-center text-sm text-slate-500 mt-4">
           No tenés cuenta?{" "}
           <Link href="/signup" className="text-violet-600 font-medium hover:underline">
-            Empezar gratis-
+            Empezar gratis
           </Link>
         </p>
       </div>
