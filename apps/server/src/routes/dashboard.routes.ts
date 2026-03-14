@@ -19,16 +19,15 @@ import { extractTokenFromHeader, verifyToken } from "../lib/jwt.js";
 /** Extrae el workspaceId del request — JWT o header legacy */
 async function resolveWorkspaceId(
   db: Database,
-  headers: Record<string, string | string[] | undefined>,
-  env: { JWT_SECRET: string }
+  headers: Record<string, string | string[] | undefined>
 ): Promise<string | null> {
   // 1. JWT Bearer token (producción)
   const authHeader = headers["authorization"] as string | undefined;
   if (authHeader) {
     const token = extractTokenFromHeader(authHeader);
     if (token) {
-      const payload = verifyToken(token, env.JWT_SECRET);
-      if (payload && payload.workspaceId) {
+      const payload = verifyToken(token);
+      if (payload?.workspaceId) {
         return payload.workspaceId;
       }
     }
@@ -48,12 +47,9 @@ export async function dashboardRoutes(
   app: FastifyInstance,
   { db }: { db: Database }
 ) {
-  // Necesitamos acceder a JWT_SECRET — viene del env ya validado en bootstrap
-  const env = { JWT_SECRET: process.env["JWT_SECRET"] ?? "dev-secret-change-in-production" };
-
   // ─── GET /api/conversations ───────────────────────────────────────────────
   app.get("/api/conversations", async (request, reply) => {
-    const workspaceId = await resolveWorkspaceId(db, request.headers as Record<string, string | undefined>, env);
+    const workspaceId = await resolveWorkspaceId(db, request.headers as Record<string, string | undefined>);
 
     if (!workspaceId) {
       return reply.status(401).send({ error: "No autorizado" });
@@ -67,7 +63,7 @@ export async function dashboardRoutes(
   app.get<{ Params: { id: string } }>(
     "/api/conversations/:id/messages",
     async (request, reply) => {
-      const workspaceId = await resolveWorkspaceId(db, request.headers as Record<string, string | undefined>, env);
+      const workspaceId = await resolveWorkspaceId(db, request.headers as Record<string, string | undefined>);
 
       if (!workspaceId) {
         return reply.status(401).send({ error: "No autorizado" });
@@ -92,7 +88,7 @@ export async function dashboardRoutes(
   app.post<{ Params: { id: string } }>(
     "/api/conversations/:id/close",
     async (request, reply) => {
-      const workspaceId = await resolveWorkspaceId(db, request.headers as Record<string, string | undefined>, env);
+      const workspaceId = await resolveWorkspaceId(db, request.headers as Record<string, string | undefined>);
 
       if (!workspaceId) {
         return reply.status(401).send({ error: "No autorizado" });
