@@ -88,8 +88,19 @@ export function registerSocketHandlers(io: AppServer, db: Database) {
     // El widget llama esto al reconectar si ya tiene un conversationId.
     // Restaura socket.data en el nuevo socket session para que message:send funcione.
     socket.on("conversation:rejoin", async ({ conversationId }: { conversationId: string }) => {
-      await socket.join(`conversation:${conversationId}`);
-      socket.data.conversationId = conversationId;
+      try {
+        // Restaurar el workspace desde la DB (conversation:start ya no puede setearlo)
+        const [row] = await db<{ workspace_id: string }[]>`
+          SELECT workspace_id FROM conversations WHERE id = ${conversationId} LIMIT 1
+        `;
+        await socket.join(`conversation:${conversationId}`);
+        socket.data.conversationId = conversationId;
+        if (row?.workspace_id) {
+          socket.data.workspaceId = row.workspace_id;
+        }
+      } catch (err) {
+        console.error("[socket] conversation:rejoin error", err);
+      }
     });
 
     // ─── message:send ─────────────────────────────────────────────────────
