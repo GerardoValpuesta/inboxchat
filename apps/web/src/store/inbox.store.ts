@@ -26,6 +26,7 @@ interface InboxState {
 
   // Mensajes (solo los de la conversación activa en memoria)
   messages: Message[];
+  isLoadingMessages: boolean;
 
   // Acciones
   setConnected: (connected: boolean) => void;
@@ -36,6 +37,7 @@ interface InboxState {
   setMessages: (messages: Message[]) => void;
   addMessage: (message: Message) => void;
   markConversationRead: (conversationId: string) => void;
+  setLoadingMessages: (loading: boolean) => void;
 }
 
 export const useInboxStore = create<InboxState>()((set) => ({
@@ -43,6 +45,7 @@ export const useInboxStore = create<InboxState>()((set) => ({
   conversations: [],
   activeConversationId: null,
   messages: [],
+  isLoadingMessages: false,
 
   setConnected: (isConnected) => set({ isConnected }),
 
@@ -81,6 +84,8 @@ export const useInboxStore = create<InboxState>()((set) => ({
         c.id === conversationId ? { ...c, unreadCount: 0 } : c
       ),
     })),
+
+  setLoadingMessages: (isLoadingMessages) => set({ isLoadingMessages }),
 }));
 
 // Selectores memoizados para evitar re-renders innecesarios

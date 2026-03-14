@@ -24,7 +24,7 @@ interface InboxLayoutProps {
 
 export function InboxLayout({ workspaceId }: InboxLayoutProps) {
   const socketRef = useSocket(workspaceId);
-  const { setConversations, setMessages, activeConversationId } = useInboxStore();
+  const { setConversations, setMessages, setLoadingMessages, activeConversationId } = useInboxStore();
 
   // Polling de conversaciones — carga inicial + refresca cada 5s.
   // No usamos un ref guard para evitar bloquear el re-setup del interval.
@@ -59,6 +59,7 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
   useEffect(() => {
     if (!activeConversationId) return;
 
+    setLoadingMessages(true);
     fetch(
       `${SERVER_URL}/api/conversations/${activeConversationId}/messages`,
       { headers: getAuthHeaders() }
@@ -69,8 +70,11 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
       })
       .catch((err: unknown) => {
         console.error("[inbox] Error cargando mensajes:", err);
+      })
+      .finally(() => {
+        setLoadingMessages(false);
       });
-  }, [activeConversationId, setMessages]);
+  }, [activeConversationId, setMessages, setLoadingMessages]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
