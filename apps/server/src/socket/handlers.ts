@@ -116,22 +116,36 @@ export function registerSocketHandlers(io: AppServer, db: Database) {
 
     // ─── conversation:rejoin ──────────────────────────────────────────────
     // El widget llama esto al reconectar si ya tiene un conversationId.
-    // Restaura socket.data en el nuevo socket session para que message:send funcione.
-    socket.on("conversation:rejoin", async ({ conversationId }: { conversationId: string }) => {
-      try {
-        // Restaurar el workspace desde la DB (conversation:start ya no puede setearlo)
-        const [row] = await db<{ workspace_id: string }[]>`
-          SELECT workspace_id FROM conversations WHERE id = ${conversationId} LIMIT 1
-        `;
-        await socket.join(`conversation:${conversationId}`);
-        socket.data.conversationId = conversationId;
-        if (row?.workspace_id) {
+    // Restaura socket.data y devuelve el historial de mensajes.
+    socket.on(
+      "conversation:rejoin",
+      async (
+        { conversationId }: { conversationId: string },
+        callback?: (result: { ok: boolean; messages?: unknown[]; error?: string }) => void
+      ) => {
+        try {
+          const [row] = await db<{ workspace_id: string }[]>`
+            SELECT workspace_id FROM conversations WHERE id = ${conversationId} LIMIT 1
+          `;
+
+          if (!row) {
+            callback?.({ ok: false, error: "Conversación no encontrada" });
+            return;
+          }
+
+          await socket.join(`conversation:${conversationId}`);
+          socket.data.conversationId = conversationId;
           socket.data.workspaceId = row.workspace_id;
+
+          // Cargar historial de los últimos 50 mensajes
+          const messages = await getConversationHistory(db, conversationId, 50);
+          callback?.({ ok: true, messages });
+        } catch (err) {
+          console.error("[socket] conversation:rejoin error", err);
+          callback?.({ ok: false, error: "Error interno" });
         }
-      } catch (err) {
-        console.error("[socket] conversation:rejoin error", err);
       }
-    });
+    );
 
     // ─── message:send ─────────────────────────────────────────────────────
     socket.on("message:send", async (payload, callback) => {

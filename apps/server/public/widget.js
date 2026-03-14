@@ -241,8 +241,23 @@
       document.getElementById("ic-send-btn").disabled = false;
 
       if (state.conversationId) {
-        // Reconexión: restaurar la sesión en el servidor con el conversationId existente
-        socket.emit("conversation:rejoin", { conversationId: state.conversationId });
+        // Reconexión: restaurar la sesión + pedir historial de mensajes
+        socket.emit(
+          "conversation:rejoin",
+          { conversationId: state.conversationId },
+          function (result) {
+            if (result && result.ok && Array.isArray(result.messages) && result.messages.length > 0) {
+              // Renderizar historial (los mensajes vienen con created_at del DB)
+              result.messages.forEach(function (msg, i) {
+                addMessage({
+                  body: msg.body,
+                  sender: msg.sender,
+                  createdAt: msg.createdAt || msg.created_at,
+                }, i < result.messages.length - 1 ? false : undefined);
+              });
+            }
+          }
+        );
       } else {
         // Primera conexión: crear nueva conversación
         startConversation();
