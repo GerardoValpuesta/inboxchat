@@ -22,6 +22,15 @@ const envSchema = z.object({
 
   // Auth
   JWT_SECRET: z.string().min(32, "JWT_SECRET debe tener al menos 32 caracteres").default("dev_secret_change_in_production_min_32_chars"),
+
+  // Stripe billing
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  STRIPE_PRICE_ID: z.string().optional(),
+
+  // URLs de retorno de Stripe Checkout
+  WEB_URL_SUCCESS: z.string().url().optional(),
+  WEB_URL_CANCEL: z.string().url().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
