@@ -38,22 +38,23 @@ async function bootstrap() {
   });
 
   // 4. Plugins de seguridad
-  // CORS: permite el dashboard (WEB_URL) + previews de Vercel + desarrollo local
+  // CORS: permite el dashboard (WEB_URL) + previews de Vercel/Railway + dev local
   const allowedOrigins = new Set([
     env.WEB_URL,
     "http://localhost:3000",
     "http://localhost:3001",
   ]);
 
+  const isAllowedOrigin = (origin: string) =>
+    allowedOrigins.has(origin) ||
+    origin.endsWith(".vercel.app") ||
+    origin.endsWith(".railway.app") ||
+    origin.endsWith(".up.railway.app");
+
   await app.register(cors, {
     origin: (origin, callback) => {
-      // Sin origin = petición server-to-server o mismo origen
       if (!origin) return callback(null, true);
-      // Origin explícitamente permitido
-      if (allowedOrigins.has(origin)) return callback(null, true);
-      // Preview URLs de Vercel (*.vercel.app)
-      if (origin.endsWith(".vercel.app")) return callback(null, true);
-      // Bloquear el resto
+      if (isAllowedOrigin(origin)) return callback(null, true);
       callback(new Error(`CORS: origin no permitido: ${origin}`), false);
     },
     credentials: true,
@@ -107,10 +108,7 @@ async function bootstrap() {
     cors: {
       origin: (origin, callback) => {
         if (!origin) return callback(null, true);
-        if (origin === env.WEB_URL) return callback(null, true);
-        if (origin === "http://localhost:3000") return callback(null, true);
-        if (origin === "http://localhost:3001") return callback(null, true);
-        if (origin.endsWith(".vercel.app")) return callback(null, true);
+        if (isAllowedOrigin(origin)) return callback(null, true);
         callback(new Error(`Socket.io CORS: origin no permitido: ${origin}`), false);
       },
       credentials: true,

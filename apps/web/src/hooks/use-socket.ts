@@ -34,7 +34,6 @@ export function useSocket(workspaceId: string) {
     const socket: AppSocket = io(
       process.env["NEXT_PUBLIC_SERVER_URL"] ?? "http://localhost:3001",
       {
-        transports: ["websocket"],
         autoConnect: true,
         reconnection: true,
         reconnectionAttempts: Infinity,
