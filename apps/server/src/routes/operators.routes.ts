@@ -48,6 +48,7 @@ export async function operatorsRoutes(
   // ─── POST /api/operators/invite ──────────────────────────────────────────
   app.post<{ Body: { email: string; name: string } }>(
     "/api/operators/invite",
+    { config: { rateLimit: { max: 5, timeWindow: "1 minute" } } },
     async (request, reply) => {
       const ctx = await getOperatorContext(request.headers["authorization"] as string);
       if (!ctx) return reply.status(401).send({ error: "No autenticado" });

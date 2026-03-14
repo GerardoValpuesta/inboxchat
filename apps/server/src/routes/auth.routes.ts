@@ -25,7 +25,9 @@ export async function authRoutes(
   // ─── POST /api/auth/register ─────────────────────────────────────────────
   app.post<{
     Body: { name: string; email: string; password: string; workspaceKey: string };
-  }>("/api/auth/register", async (request, reply) => {
+  }>("/api/auth/register",
+    { config: { rateLimit: { max: 5, timeWindow: "1 minute" } } },
+    async (request, reply) => {
     const { name, email, password, workspaceKey } = request.body;
 
     if (!name || !email || !password || !workspaceKey) {
@@ -80,7 +82,9 @@ export async function authRoutes(
   // ─── POST /api/auth/login ─────────────────────────────────────────────────
   app.post<{
     Body: { email: string; password: string };
-  }>("/api/auth/login", async (request, reply) => {
+  }>("/api/auth/login",
+    { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } },
+    async (request, reply) => {
     const { email, password } = request.body;
 
     if (!email || !password) {

@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
+import rateLimit from "@fastify/rate-limit";
 import { Server } from "socket.io";
 import { readFile } from "fs/promises";
 import { fileURLToPath } from "url";
@@ -62,6 +63,19 @@ async function bootstrap() {
 
   await app.register(helmet, {
     contentSecurityPolicy: false,
+  });
+
+  // Rate limiting: protege contra brute-force y abuso
+  // Global: 200 req / minuto / IP — permisivo para Operações normales del dashboard
+  await app.register(rateLimit, {
+    global: true,
+    max: 200,
+    timeWindow: "1 minute",
+    errorResponseBuilder: (_req, context) => ({
+      statusCode: 429,
+      error: "Too Many Requests",
+      message: `Demasiadas peticiones. Intentá en ${Math.ceil(context.ttl / 1000)} segundos.`,
+    }),
   });
 
   // Servir archivos estáticos del widget sin dependencias extra
