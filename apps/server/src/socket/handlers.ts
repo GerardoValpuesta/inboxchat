@@ -129,8 +129,9 @@ export function registerSocketHandlers(io: AppServer, db: Database) {
           await incrementUnreadCount(db, conversationId);
         }
 
-        // 4. Emitir a todos en la sala (widget + dashboard del operador)
-        io.to(`conversation:${conversationId}`).emit("message:received", { message });
+        // 4. Emitir al resto de la sala (excluye al sender — el widget tiene optimistic UI,
+        //    el operador ya recibe message:new desde el workspace room)
+        socket.to(`conversation:${conversationId}`).emit("message:received", { message });
 
         // 5. Notificar al dashboard con el nuevo mensaje
         const conversation = await getConversationWithContact(
