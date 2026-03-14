@@ -224,6 +224,9 @@
       function (result) {
         if (result.ok) {
           state.conversationId = result.conversation.id;
+        } else if (result.error === "trial_expired" || result.error === "trial_limit_reached") {
+          // Mostrar panel de trial expirado al visitante
+          showTrialExpiredUI(result.error);
         } else {
           console.error("[InboxChat] Error al iniciar conversación:", result.error);
           updateStatus("Error de conexion");
@@ -231,6 +234,30 @@
       }
     );
   }
+
+  function showTrialExpiredUI(reason) {
+    var messagesEl = document.getElementById("ic-messages");
+    var inputArea = document.getElementById("ic-input-area");
+    if (!messagesEl) return;
+
+    var msg = reason === "trial_limit_reached"
+      ? "Este chat ha alcanzado el límite de conversaciones de su plan gratuito."
+      : "El período de prueba gratuita de este chat ha expirado.";
+
+    messagesEl.innerHTML = [
+      '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:24px;text-align:center;gap:12px">',
+      '<div style="font-size:32px">⏰</div>',
+      '<p style="margin:0;font-size:14px;color:#475569;font-weight:600">' + msg + '</p>',
+      '<p style="margin:0;font-size:12px;color:#94a3b8">El equipo está trabajando para restablecer el servicio pronto.</p>',
+      '</div>'
+    ].join("");
+
+    if (inputArea) {
+      inputArea.style.display = "none";
+    }
+    updateStatus("No disponible");
+  }
+
 
   function sendMessage(body) {
     if (!state.socket || !state.conversationId || !body.trim()) return;

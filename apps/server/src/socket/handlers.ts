@@ -49,7 +49,35 @@ export function registerSocketHandlers(io: AppServer, db: Database) {
           return;
         }
 
-        // 2. Upsert del contact (visitante anónimo o identificado)
+        // 2. Trial enforcement
+        if (workspace.plan !== "pro") {
+          const now = new Date();
+
+          // Si trial_ends_at es null → es su primera conversación, arrancar el trial
+          if (!workspace.trial_ends_at) {
+            const trialEndsAt = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+            await db`
+              UPDATE workspaces SET trial_ends_at = ${trialEndsAt} WHERE id = ${workspace.id}
+            `;
+            workspace.trial_ends_at = trialEndsAt.toISOString() as unknown as Date;
+          }
+
+          // Verificar si el trial expiró
+          if (new Date(workspace.trial_ends_at as unknown as string) < now) {
+            callback({ ok: false, error: "trial_expired" });
+            return;
+          }
+
+          // Verificar límite de conversaciones (100)
+          const [countRow] = await db<{ total: number }[]>`
+            SELECT COUNT(*)::int AS total FROM conversations WHERE workspace_id = ${workspace.id}
+          `;
+          if ((countRow?.total ?? 0) >= 100) {
+            callback({ ok: false, error: "trial_limit_reached" });
+            return;
+          }
+        }
+
         // Con exactOptionalPropertyTypes, no se puede pasar `string | undefined`
         // donde se espera `string`. Construir el objeto solo con las propiedades definidas.
         const contactData: { externalId?: string; name?: string; email?: string } = {};
