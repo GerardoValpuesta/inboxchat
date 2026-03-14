@@ -40,6 +40,14 @@ export default function SettingsPage() {
   const [savingWidget, setSavingWidget] = useState(false);
   const [widgetSaved, setWidgetSaved] = useState(false);
   const [widgetWelcome, setWidgetWelcome] = useState("¡Hola! 👋 ¿En qué podemos ayudarte?");
+  const [widgetGdpr, setWidgetGdpr] = useState(false);
+
+  // Team
+  const [operators, setOperators] = useState<{ id: string; name: string; email: string }[]>([]);
+  const [inviteName, setInviteName] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviting, setInviting] = useState(false);
+  const [inviteSent, setInviteSent] = useState("");
 
   useEffect(() => {
     Promise.all([
@@ -74,10 +82,17 @@ export default function SettingsPage() {
         // Cargar config actual del widget desde el servidor
         const cfg = await fetch(`${SERVER_URL}/api/widget/config?key=${me.workspace.apiKey}`);
         if (cfg.ok) {
-          const d = await cfg.json() as { title?: string; color?: string; welcomeMessage?: string };
+          const d = await cfg.json() as { title?: string; color?: string; welcomeMessage?: string; gdprEnabled?: boolean };
           if (d.title) setWidgetTitle(d.title);
           if (d.color) setWidgetColor(d.color);
           if (d.welcomeMessage) setWidgetWelcome(d.welcomeMessage);
+          if (d.gdprEnabled !== undefined) setWidgetGdpr(d.gdprEnabled);
+        }
+        // Cargar operadores
+        const opsRes = await fetch(`${SERVER_URL}/api/operators`, { headers: getAuthHeaders() as HeadersInit });
+        if (opsRes.ok) {
+          const opsData = await opsRes.json() as { operators: { id: string; name: string; email: string }[] };
+          setOperators(opsData.operators ?? []);
         }
       })
       .catch(() => router.push("/login"))
@@ -104,13 +119,49 @@ export default function SettingsPage() {
       await fetch(`${SERVER_URL}/api/workspace/widget`, {
         method: "PATCH",
         headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
-        body: JSON.stringify({ title: widgetTitle, color: widgetColor, welcomeMessage: widgetWelcome }),
+        body: JSON.stringify({ title: widgetTitle, color: widgetColor, welcomeMessage: widgetWelcome, gdprEnabled: widgetGdpr }),
       });
       setWidgetSaved(true);
       setTimeout(() => setWidgetSaved(false), 2000);
     } finally {
       setSavingWidget(false);
     }
+  }
+
+  async function inviteOperator(e: React.FormEvent) {
+    e.preventDefault();
+    setInviting(true);
+    setInviteSent("");
+    try {
+      const res = await fetch(`${SERVER_URL}/api/operators/invite`, {
+        method: "POST",
+        headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ name: inviteName, email: inviteEmail }),
+      });
+      const d = await res.json() as { ok?: boolean; error?: string };
+      if (res.ok) {
+        setInviteSent(inviteEmail);
+        setInviteName("");
+        setInviteEmail("");
+        const opsRes = await fetch(`${SERVER_URL}/api/operators`, { headers: getAuthHeaders() as HeadersInit });
+        if (opsRes.ok) {
+          const opsData = await opsRes.json() as { operators: typeof operators };
+          setOperators(opsData.operators ?? []);
+        }
+      } else {
+        setInviteSent(`Error: ${d.error ?? "no se pudo invitar"}`);
+      }
+    } finally {
+      setInviting(false);
+    }
+  }
+
+  async function removeOperator(id: string) {
+    await fetch(`${SERVER_URL}/api/operators/${id}`, {
+      method: "DELETE",
+      headers: getAuthHeaders() as HeadersInit,
+    });
+    setOperators((prev) => prev.filter((op) => op.id !== id));
   }
 
   if (loading) {
@@ -170,6 +221,47 @@ export default function SettingsPage() {
                 Gestionar suscripción →
               </Link>
             </div>
+          </div>
+
+          {/* Team */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+            <h2 className="text-sm font-semibold text-slate-900 uppercase tracking-wide mb-2">Equipo</h2>
+            <p className="text-xs text-slate-500 mb-4">Invitá agentes para que respondan chats.</p>
+            <div className="space-y-2 mb-4">
+              {operators.map((op) => (
+                <div key={op.id} className="flex items-center justify-between py-2 px-3 rounded-lg bg-slate-50 border border-slate-100">
+                  <div>
+                    <p className="text-sm font-medium text-slate-800">{op.name}</p>
+                    <p className="text-xs text-slate-500">{op.email}</p>
+                  </div>
+                  <button
+                    onClick={() => void removeOperator(op.id)}
+                    className="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors"
+                  >
+                    Eliminar
+                  </button>
+                </div>
+              ))}
+              {operators.length === 0 && <p className="text-xs text-slate-400 text-center py-2">Solo vos en el equipo.</p>}
+            </div>
+            <form onSubmit={(e) => void inviteOperator(e)} className="flex flex-col gap-3 border-t border-slate-100 pt-4">
+              <p className="text-xs font-medium text-slate-600">Invitar nuevo agente</p>
+              <div className="flex gap-2">
+                <input type="text" value={inviteName} onChange={(e) => setInviteName(e.target.value)} placeholder="Nombre" required
+                  className="flex-1 px-3 py-2 text-xs rounded-lg border border-slate-200 outline-none focus:border-violet-400" />
+                <input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="email@agente.com" required
+                  className="flex-1 px-3 py-2 text-xs rounded-lg border border-slate-200 outline-none focus:border-violet-400" />
+                <button type="submit" disabled={inviting}
+                  className="px-3 py-2 text-xs font-semibold bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 whitespace-nowrap">
+                  {inviting ? "Enviando..." : "Invitar"}
+                </button>
+              </div>
+              {inviteSent && (
+                <p className={`text-xs ${inviteSent.startsWith("Error") ? "text-red-600" : "text-emerald-600"}`}>
+                  {inviteSent.startsWith("Error") ? inviteSent : `✓ Invitación enviada a ${inviteSent}`}
+                </p>
+              )}
+            </form>
           </div>
 
           {/* Widget personalización */}

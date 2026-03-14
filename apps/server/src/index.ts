@@ -96,6 +96,7 @@ async function bootstrap() {
   const { passwordResetRoutes } = await import("./routes/password-reset.routes.js");
   const { widgetConfigRoute } = await import("./routes/widget-config.route.js");
   const { analyticsRoutes } = await import("./routes/analytics.routes.js");
+  const { operatorsRoutes } = await import("./routes/operators.routes.js");
   // El webhook de Stripe necesita raw body — registrarlo ANTES que helmet parsee el body
   await app.register(stripeWebhookRoute, { db });
   await app.register(authRoutes, { db });
@@ -106,6 +107,7 @@ async function bootstrap() {
   await app.register(workspaceRoutes, { db });
   await app.register(widgetConfigRoute, { db });
   await app.register(analyticsRoutes, { db });
+  await app.register(operatorsRoutes, { db });
 
   // 7. Esperar a que Fastify termine de inicializarse antes de adjuntar Socket.io
   // Esto evita el race condition donde Socket.io se adjunta antes de que

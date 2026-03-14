@@ -24,6 +24,7 @@
   var widgetTitle = config.title || "Soporte";
   var widgetColor = config.color || "#1e293b";
   var widgetWelcome = config.welcomeMessage || "¡Hola! 👋 ¿En qué podemos ayudarte?";
+  var widgetGdprEnabled = config.gdprEnabled || false;
 
   if (!WORKSPACE_KEY) {
     console.error("[InboxChat] workspaceKey es requerido");
@@ -82,6 +83,8 @@
       "#ic-prechat-btn{margin-top:4px;padding:11px;border-radius:10px;background:var(--ic-primary,#1e293b);color:white;font-size:14px;font-weight:600;border:none;cursor:pointer;transition:opacity .15s}",
       "#ic-prechat-btn:hover{opacity:.9}",
       "#ic-prechat .ic-skip{font-size:12px;color:#94a3b8;text-align:center;background:none;border:none;cursor:pointer;padding:4px;text-decoration:underline}",
+      ".ic-gdpr{display:flex;align-items:flex-start;gap:8px;font-size:11px;color:#64748b;padding:4px 0;cursor:pointer}",
+      ".ic-gdpr input[type='checkbox']{margin-top:2px;accent-color:var(--ic-primary,#1e293b);cursor:pointer;flex-shrink:0}",
       "@media(max-width:420px){#ic-panel{width:calc(100vw - 24px);right:12px;bottom:80px;height:480px}}",
     ].join("");
     document.head.appendChild(style);
@@ -135,6 +138,12 @@
       '  </div>',
       '  <button id="ic-prechat-btn">Iniciar chat →</button>',
       '  <button class="ic-skip" id="ic-prechat-skip">Continuar sin datos</button>',
+      widgetGdprEnabled ? [
+        '  <label class="ic-gdpr">',
+        '    <input type="checkbox" id="ic-gdpr-check" />',
+        '    <span>Acepto que mis datos sean usados para brindarme soporte. <a href="/privacy" target="_blank" style="color:inherit;text-decoration:underline">Política de privacidad</a></span>',
+        '  </label>',
+      ].join("") : "",
       '</div>',
       '<div id="ic-messages">',
       '  <div id="ic-empty">',
@@ -333,6 +342,14 @@
 
     // Pre-chat: submit del form -> conectar socket con datos del contacto
     function submitPreChat(skip) {
+      // Validar GDPR si está habilitado y no es skip
+      if (!skip && widgetGdprEnabled) {
+        var gdprCheck = document.getElementById("ic-gdpr-check");
+        if (gdprCheck && !gdprCheck.checked) {
+          gdprCheck.style.outline = "2px solid #ef4444";
+          return;
+        }
+      }
       var name = skip ? "" : (document.getElementById("ic-name").value.trim() || "");
       var email = skip ? "" : (document.getElementById("ic-email").value.trim() || "");
       state.preChatContact = (name || email) ? { name: name, email: email } : null;
@@ -409,6 +426,7 @@
             if (brandEl) brandEl.textContent = ":root { --ic-primary: " + cfg.color + "; }";
           }
           if (cfg.welcomeMessage) widgetWelcome = cfg.welcomeMessage;
+          if (cfg.gdprEnabled !== undefined) widgetGdprEnabled = cfg.gdprEnabled;
         } catch (_) { /* ignorar errores de parseo */ }
       }
       callback();

@@ -20,11 +20,12 @@ export async function widgetConfigRoute(
         widget_title: string;
         widget_color: string;
         widget_welcome_message: string;
+        widget_gdpr_enabled: boolean;
         name: string;
         plan: string;
         trial_ends_at: string | null;
       }[]>`
-        SELECT widget_title, widget_color, widget_welcome_message, name, plan, trial_ends_at
+        SELECT widget_title, widget_color, widget_welcome_message, widget_gdpr_enabled, name, plan, trial_ends_at
         FROM workspaces
         WHERE api_key = ${key}
         LIMIT 1
@@ -38,6 +39,7 @@ export async function widgetConfigRoute(
         title: workspace.widget_title ?? "Soporte",
         color: workspace.widget_color ?? "#1e293b",
         welcomeMessage: workspace.widget_welcome_message ?? "¡Hola! 👋 ¿En qué podemos ayudarte?",
+        gdprEnabled: workspace.widget_gdpr_enabled ?? false,
         workspaceName: workspace.name,
       });
     }
@@ -46,7 +48,7 @@ export async function widgetConfigRoute(
   // ─── PATCH /api/workspace/widget — actualiza config del widget ───────────
   // Requiere Auth (Bearer JWT o X-Workspace-Key)
   app.patch<{
-    Body: { title?: string; color?: string; welcomeMessage?: string };
+    Body: { title?: string; color?: string; welcomeMessage?: string; gdprEnabled?: boolean };
   }>("/api/workspace/widget", async (request, reply) => {
     // Resolución de workspaceId por JWT o header
     const authHeader = request.headers["authorization"] as string | undefined;
@@ -72,14 +74,15 @@ export async function widgetConfigRoute(
 
     if (!workspaceId) return reply.status(401).send({ error: "No autenticado" });
 
-    const { title, color, welcomeMessage } = request.body;
+    const { title, color, welcomeMessage, gdprEnabled } = request.body;
 
     await db`
       UPDATE workspaces
       SET
         widget_title = COALESCE(${title ?? null}, widget_title),
         widget_color = COALESCE(${color ?? null}, widget_color),
-        widget_welcome_message = COALESCE(${welcomeMessage ?? null}, widget_welcome_message)
+        widget_welcome_message = COALESCE(${welcomeMessage ?? null}, widget_welcome_message),
+        widget_gdpr_enabled = COALESCE(${gdprEnabled ?? null}, widget_gdpr_enabled)
       WHERE id = ${workspaceId}
     `;
 
