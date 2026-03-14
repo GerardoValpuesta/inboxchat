@@ -63,12 +63,12 @@ export function useSocket(workspaceId: string) {
     });
 
     socket.on("message:new", ({ conversationId, message }) => {
-      // Siempre agregar el mensaje al store (si la conversación activa es otra, no se muestra)
+      // Agregar al historial de mensajes (si es la conversación activa)
       addMessage(message);
-      // Actualizar el timestamp de la conversación para que suba en la lista
+      // Actualizar el sidebar con el último mensaje y timestamp (real-time)
       updateConversation(conversationId, {
         updatedAt: message.createdAt,
-        // No actualizamos unreadCount desde el cliente — el servidor es la fuente de verdad
+        lastMessage: message,
       });
     });
 
