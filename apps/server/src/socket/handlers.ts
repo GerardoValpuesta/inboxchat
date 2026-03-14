@@ -129,24 +129,26 @@ export function registerSocketHandlers(io: AppServer, db: Database) {
           await incrementUnreadCount(db, conversationId);
         }
 
-        // 4. Emitir al resto de la sala (excluye al sender — el widget tiene optimistic UI,
-        //    el operador ya recibe message:new desde el workspace room)
+        // 4. Emitir al resto de la sala (excluye al sender)
         socket.to(`conversation:${conversationId}`).emit("message:received", { message });
 
-        // 5. Notificar al dashboard con el nuevo mensaje
-        const conversation = await getConversationWithContact(
-          db,
-          conversationId,
-          socket.data.workspaceId!
-        );
-        if (conversation) {
-          io.to(`workspace:${socket.data.workspaceId}`).emit("message:new", {
-            conversationId,
-            message,
-          });
-        }
-
+        // 5. Responder al cliente ANTES de la notificación del workspace
+        //    (evita que errores en getConversationWithContact lleguen al callback)
         callback({ ok: true, message });
+
+        // 6. Notificación del workspace (best-effort — no afecta el callback)
+        try {
+          const workspaceId = socket.data.workspaceId;
+          if (workspaceId) {
+            io.to(`workspace:${workspaceId}`).emit("message:new", {
+              conversationId,
+              message,
+            });
+          }
+        } catch (notifyErr) {
+          console.error("[socket] workspace notify error", notifyErr);
+        }
+        return;
       } catch (err) {
         console.error("[socket] message:send error", err);
         callback({ ok: false, error: "Error interno del servidor" });

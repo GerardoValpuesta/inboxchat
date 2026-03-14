@@ -21,6 +21,7 @@ interface ChatPanelProps {
 export function ChatPanel({ socketRef }: ChatPanelProps) {
   const activeConversation = useInboxStore(selectActiveConversation);
   const messages = useInboxStore((s) => s.messages);
+  const addMessage = useInboxStore((s) => s.addMessage);
   const [inputValue, setInputValue] = useState("");
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -44,7 +45,10 @@ export function ChatPanel({ socketRef }: ChatPanelProps) {
       { conversationId: activeConversation.id, body },
       (result) => {
         setIsSending(false);
-        if (!result.ok) {
+        if (result.ok) {
+          // Agregar el mensaje al store inmediatamente para real-time feedback
+          addMessage(result.message);
+        } else {
           // Restaurar el texto si falla el envío
           setInputValue(body);
           console.error("[chat] error al enviar:", result.error);
