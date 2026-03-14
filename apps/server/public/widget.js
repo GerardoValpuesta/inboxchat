@@ -186,8 +186,11 @@
       updateStatus(state.operatorOnline ? "En linea" : "Disponible");
       document.getElementById("ic-send-btn").disabled = false;
 
-      // Si no hay conversación activa, iniciarla al conectar
-      if (!state.conversationId) {
+      if (state.conversationId) {
+        // Reconexión: restaurar la sesión en el servidor con el conversationId existente
+        socket.emit("conversation:rejoin", { conversationId: state.conversationId });
+      } else {
+        // Primera conexión: crear nueva conversación
         startConversation();
       }
     });

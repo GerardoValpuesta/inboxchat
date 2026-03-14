@@ -84,6 +84,14 @@ export function registerSocketHandlers(io: AppServer, db: Database) {
       }
     });
 
+    // ─── conversation:rejoin ──────────────────────────────────────────────
+    // El widget llama esto al reconectar si ya tiene un conversationId.
+    // Restaura socket.data en el nuevo socket session para que message:send funcione.
+    socket.on("conversation:rejoin", async ({ conversationId }: { conversationId: string }) => {
+      await socket.join(`conversation:${conversationId}`);
+      socket.data.conversationId = conversationId;
+    });
+
     // ─── message:send ─────────────────────────────────────────────────────
     socket.on("message:send", async (payload, callback) => {
       try {

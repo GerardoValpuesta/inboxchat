@@ -67,6 +67,7 @@ export interface ClientToServerEvents {
     payload: ConversationStartPayload,
     callback: (result: { ok: true; conversation: Conversation } | { ok: false; error: string }) => void
   ) => void;
+  "conversation:rejoin": (payload: { conversationId: string }) => void;
   "message:send": (
     payload: MessageSendPayload,
     callback: (result: { ok: true; message: Message } | { ok: false; error: string }) => void
