@@ -1,0 +1,158 @@
+import type { Server, Socket } from "socket.io";
+import type {
+  ServerToClientEvents,
+  ClientToServerEvents,
+  InterServerEvents,
+  SocketData,
+} from "@inboxchat/shared";
+import type { Database } from "../db/client.js";
+import {
+  findWorkspaceByApiKey,
+  upsertContact,
+  createConversation,
+  saveMessage,
+  incrementUnreadCount,
+  markConversationRead,
+  getConversationHistory,
+  getConversationWithContact,
+} from "../db/queries.js";
+
+type AppServer = Server<
+  ClientToServerEvents,
+  ServerToClientEvents,
+  InterServerEvents,
+  SocketData
+>;
+
+type AppSocket = Socket<
+  ClientToServerEvents,
+  ServerToClientEvents,
+  InterServerEvents,
+  SocketData
+>;
+
+/**
+ * Registra todos los handlers de eventos de Socket.io.
+ * Cada handler valida, persiste y emite.
+ *
+ * Patrón: receive -> validate -> persist -> emit
+ */
+export function registerSocketHandlers(io: AppServer, db: Database) {
+  io.on("connection", (socket: AppSocket) => {
+    // ─── conversation:start ───────────────────────────────────────────────
+    socket.on("conversation:start", async (payload, callback) => {
+      try {
+        // 1. Validar que el workspace existe y está activo
+        const workspace = await findWorkspaceByApiKey(db, payload.workspaceKey);
+        if (!workspace) {
+          callback({ ok: false, error: "Workspace no encontrado" });
+          return;
+        }
+
+        // 2. Upsert del contact (visitante anónimo o identificado)
+        // Con exactOptionalPropertyTypes, no se puede pasar `string | undefined`
+        // donde se espera `string`. Construir el objeto solo con las propiedades definidas.
+        const contactData: { externalId?: string; name?: string; email?: string } = {};
+        if (payload.contact?.externalId !== undefined) contactData.externalId = payload.contact.externalId;
+        if (payload.contact?.name !== undefined) contactData.name = payload.contact.name;
+        if (payload.contact?.email !== undefined) contactData.email = payload.contact.email;
+
+        const contact = await upsertContact(db, workspace.id as string, contactData);
+
+        // 3. Crear conversación
+        const conversationRow = await createConversation(db, workspace.id as string, contact.id);
+
+        // 4. Unir el socket a la sala de la conversación
+        await socket.join(`conversation:${conversationRow.id}`);
+        socket.data.workspaceId = workspace.id as string;
+        socket.data.contactId = contact.id;
+        socket.data.conversationId = conversationRow.id;
+
+        const conversation = {
+          ...conversationRow,
+          contact,
+          lastMessage: null,
+        };
+
+        // 5. Notificar al dashboard del operador
+        io.to(`workspace:${workspace.id}`).emit("conversation:new", { conversation });
+
+        callback({ ok: true, conversation });
+      } catch (err) {
+        console.error("[socket] conversation:start error", err);
+        callback({ ok: false, error: "Error interno del servidor" });
+      }
+    });
+
+    // ─── message:send ─────────────────────────────────────────────────────
+    socket.on("message:send", async (payload, callback) => {
+      try {
+        const { conversationId } = socket.data;
+        if (!conversationId) {
+          callback({ ok: false, error: "No hay conversación activa" });
+          return;
+        }
+
+        // Validación básica del mensaje
+        const body = payload.body.trim();
+        if (!body || body.length > 5000) {
+          callback({ ok: false, error: "Mensaje inválido" });
+          return;
+        }
+
+        // 1. Determinar quién envía según si es el operador o el contacto
+        const isOperator = socket.data.isOperator === true;
+        const sender = isOperator ? ("operator" as const) : ("contact" as const);
+
+        // 2. Persistir
+        const message = await saveMessage(db, conversationId, body, sender);
+
+        // 3. Si el mensaje es del contacto, incrementar unread del operador
+        if (sender === "contact") {
+          await incrementUnreadCount(db, conversationId);
+        }
+
+        // 4. Emitir a todos en la sala (widget + dashboard del operador)
+        io.to(`conversation:${conversationId}`).emit("message:received", { message });
+
+        // 5. Notificar al dashboard con el nuevo mensaje
+        const conversation = await getConversationWithContact(
+          db,
+          conversationId,
+          socket.data.workspaceId!
+        );
+        if (conversation) {
+          io.to(`workspace:${socket.data.workspaceId}`).emit("message:new", {
+            conversationId,
+            message,
+          });
+        }
+
+        callback({ ok: true, message });
+      } catch (err) {
+        console.error("[socket] message:send error", err);
+        callback({ ok: false, error: "Error interno del servidor" });
+      }
+    });
+
+    // ─── operator:join ────────────────────────────────────────────────────
+    // El dashboard del operador se une a la sala del workspace para recibir
+    // notificaciones de nuevas conversaciones y mensajes.
+    socket.on("operator:join", async (workspaceId) => {
+      socket.data.workspaceId = workspaceId;
+      socket.data.isOperator = true;
+      await socket.join(`workspace:${workspaceId}`);
+
+      // Notificar al widget que el operador está online
+      io.to(`workspace:${workspaceId}`).emit("operator:status", { online: true });
+    });
+
+    // ─── disconnect ───────────────────────────────────────────────────────
+    socket.on("disconnect", () => {
+      if (socket.data.isOperator && socket.data.workspaceId) {
+        // Notificar al widget que el operador se fue offline
+        io.to(`workspace:${socket.data.workspaceId}`).emit("operator:status", { online: false });
+      }
+    });
+  });
+}

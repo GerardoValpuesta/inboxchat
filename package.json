@@ -1,0 +1,23 @@
+{
+  "name": "inboxchat",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --parallel -r dev",
+    "dev:server": "pnpm --filter @inboxchat/server dev",
+    "dev:web": "pnpm --filter @inboxchat/web dev",
+    "dev:widget": "pnpm --filter @inboxchat/widget dev",
+    "build": "pnpm --filter @inboxchat/shared build && pnpm --parallel --filter \"!@inboxchat/shared\" build",
+    "lint": "pnpm -r lint",
+    "type-check": "pnpm -r type-check",
+    "db:generate": "pnpm --filter @inboxchat/server db:generate",
+    "db:migrate": "pnpm --filter @inboxchat/server db:migrate"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  },
+  "pnpm": {
+    "overrides": {
+      "@fastify/static": "7.0.4"
+    }
+  }
+}

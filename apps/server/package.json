@@ -1,0 +1,42 @@
+{
+  "name": "@inboxchat/server",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "dev": "tsx watch --env-file=.env src/index.ts",
+    "build": "tsc --project tsconfig.json",
+    "start": "node dist/index.js",
+    "lint": "eslint src",
+    "type-check": "tsc --noEmit",
+    "db:generate": "node --loader tsx scripts/db-generate.ts",
+    "db:migrate": "node --loader tsx scripts/db-migrate.ts"
+  },
+  "dependencies": {
+    "@fastify/cors": "^9.0.1",
+    "@fastify/env": "^4.3.0",
+    "@fastify/helmet": "^11.1.1",
+    "@fastify/static": "7.0.4",
+    "@inboxchat/shared": "workspace:*",
+    "bcryptjs": "^2.4.3",
+    "fastify": "^4.27.0",
+    "jsonwebtoken": "^9.0.3",
+    "nanoid": "^5.0.7",
+    "postgres": "^3.4.4",
+    "resend": "^3.2.0",
+    "socket.io": "^4.7.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.1.1",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^9.1.1",
+    "pino-pretty": "^13.1.3",
+    "tsx": "^4.8.2",
+    "typescript": "^5.4.5"
+  }
+}
