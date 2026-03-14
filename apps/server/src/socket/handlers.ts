@@ -16,6 +16,8 @@ import {
   getConversationHistory,
   getConversationWithContact,
 } from "../db/queries.js";
+import { sendNewConversationEmail } from "../lib/email.js";
+
 
 type AppServer = Server<
   ClientToServerEvents,
@@ -166,6 +168,26 @@ export function registerSocketHandlers(io: AppServer, db: Database) {
         // 3. Si el mensaje es del contacto, incrementar unread del operador
         if (sender === "contact") {
           await incrementUnreadCount(db, conversationId);
+
+          // Notificación por email al owner del workspace (best-effort)
+          try {
+            const workspaceId = socket.data.workspaceId;
+            if (workspaceId && process.env["RESEND_API_KEY"]) {
+              const [ws] = await db<{ owner_email: string; name: string }[]>`
+                SELECT owner_email, name FROM workspaces WHERE id = ${workspaceId} LIMIT 1
+              `;
+              if (ws?.owner_email) {
+                void sendNewConversationEmail({
+                  to: ws.owner_email,
+                  workspaceName: ws.name,
+                  message: body.slice(0, 200),
+                  inboxUrl: `${process.env["WEB_URL"] ?? "https://inboxchat-web.vercel.app"}/inbox`,
+                });
+              }
+            }
+          } catch (emailErr) {
+            console.error("[socket] Email error (non-fatal):", emailErr);
+          }
         }
 
         // 4. Emitir al resto de la sala (excluye al sender)
