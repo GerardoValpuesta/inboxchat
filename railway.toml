@@ -1,9 +1,6 @@
-# Railway — configuración del monorepo
-# Documento: https://docs.railway.app/guides/monorepo
-
 [build]
 builder = "NIXPACKS"
-buildCommand = "pnpm install --frozen-lockfile && pnpm --filter @inboxchat/shared build && pnpm --filter @inboxchat/server build"
+buildCommand = "npm install -g pnpm && pnpm install --no-frozen-lockfile && pnpm --filter @inboxchat/shared build && pnpm --filter @inboxchat/server build"
 
 [deploy]
 startCommand = "node apps/server/dist/index.js"
