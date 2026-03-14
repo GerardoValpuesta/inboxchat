@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useSocket } from "@/hooks/use-socket";
 import { useInboxStore } from "@/store/inbox.store";
 import { ConversationList } from "@/components/conversation-list";
@@ -15,7 +15,6 @@ function getAuthHeaders(): HeadersInit {
     typeof window !== "undefined" ? localStorage.getItem("ic_token") : null;
   return token
     ? { Authorization: `Bearer ${token}` }
-    // Fallback para desarrollo sin auth configurada
     : { "X-Workspace-Key": "dev_key_inboxchat_local" };
 }
 
@@ -26,15 +25,17 @@ interface InboxLayoutProps {
 export function InboxLayout({ workspaceId }: InboxLayoutProps) {
   const socketRef = useSocket(workspaceId);
   const { setConversations, setMessages, activeConversationId } = useInboxStore();
-  const loadedConversations = useRef(false);
 
-  // Cargar conversaciones iniciales via REST al montar
+  // Polling de conversaciones — carga inicial + refresca cada 5s.
+  // No usamos un ref guard para evitar bloquear el re-setup del interval.
+  // setConversations es una referencia estable de Zustand, por lo que el effect
+  // solo monta una vez y el interval siempre queda activo.
   useEffect(() => {
-    if (loadedConversations.current) return;
-    loadedConversations.current = true;
-
     const loadConversations = () => {
-      fetch(`${SERVER_URL}/api/conversations`, { headers: getAuthHeaders() })
+      fetch(`${SERVER_URL}/api/conversations`, {
+        headers: getAuthHeaders(),
+        cache: "no-store",
+      })
         .then((r) => r.json())
         .then((data: { conversations: Conversation[] }) => {
           setConversations(data.conversations ?? []);
@@ -45,8 +46,7 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
     };
 
     loadConversations();
-    // Polling de backup — refresca cada 10s si el socket no entrega message:new
-    const interval = setInterval(loadConversations, 10_000);
+    const interval = setInterval(loadConversations, 5_000);
     return () => clearInterval(interval);
   }, [setConversations]);
 
