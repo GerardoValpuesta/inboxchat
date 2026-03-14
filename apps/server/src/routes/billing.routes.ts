@@ -86,7 +86,7 @@ export async function billingRoutes(
       trialDaysLeft,
       conversationCount: billing.conversation_count,
       stripeSubscriptionStatus: billing.stripe_subscription_status,
-      isActive: billing.plan === "pro" && billing.stripe_subscription_status === "active",
+      isActive: billing.plan === "pro",
     });
   });
 
