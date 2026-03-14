@@ -1,9 +1,3 @@
 {
-  "buildCommand": "pnpm install --frozen-lockfile && pnpm --filter @inboxchat/shared build && pnpm --filter @inboxchat/web build",
-  "outputDirectory": "apps/web/.next",
-  "installCommand": "pnpm install --frozen-lockfile",
-  "framework": "nextjs",
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/" }
-  ]
+  "framework": "nextjs"
 }
