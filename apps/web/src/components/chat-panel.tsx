@@ -7,6 +7,17 @@ import type { ClientToServerEvents, ServerToClientEvents } from "@inboxchat/shar
 import { useInboxStore, selectActiveConversation } from "@/store/inbox.store";
 import { cn, getInitials, timeAgo } from "@/lib/utils";
 
+const SERVER_URL =
+  process.env["NEXT_PUBLIC_SERVER_URL"] ?? "http://localhost:3001";
+
+function getAuthHeaders(): HeadersInit {
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("ic_token") : null;
+  return token
+    ? { Authorization: `Bearer ${token}` }
+    : { "X-Workspace-Key": "dev_key_inboxchat_local" };
+}
+
 type AppSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
 interface ChatPanelProps {
@@ -23,14 +34,32 @@ export function ChatPanel({ socketRef }: ChatPanelProps) {
   const messages = useInboxStore((s) => s.messages);
   const isLoadingMessages = useInboxStore((s) => s.isLoadingMessages);
   const addMessage = useInboxStore((s) => s.addMessage);
+  const updateConversation = useInboxStore((s) => s.updateConversation);
   const [inputValue, setInputValue] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Scroll automático al último mensaje
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  async function handleCloseConversation() {
+    if (!activeConversation || isClosing) return;
+    setIsClosing(true);
+    try {
+      await fetch(`${SERVER_URL}/api/conversations/${activeConversation.id}/close`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+      });
+      updateConversation(activeConversation.id, { status: "closed" });
+    } catch (err) {
+      console.error("[chat] Error cerrando conversación:", err);
+    } finally {
+      setIsClosing(false);
+    }
+  }
 
   async function handleSend() {
     const socket = socketRef.current;
@@ -118,7 +147,17 @@ export function ChatPanel({ socketRef }: ChatPanelProps) {
             <p className="text-xs text-slate-500">{contact.email}</p>
           )}
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          {activeConversation.status === "open" && (
+            <button
+              type="button"
+              onClick={() => void handleCloseConversation()}
+              disabled={isClosing}
+              className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors disabled:opacity-50 font-medium"
+            >
+              {isClosing ? "Cerrando..." : "✓ Resolver"}
+            </button>
+          )}
           <span
             className={cn(
               "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",

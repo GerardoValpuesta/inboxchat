@@ -12,17 +12,20 @@ import type { NextRequest } from "next/server";
  */
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const token = request.cookies.get("ic_token")?.value;
 
-  // Rutas públicas — no requieren autenticación
-  const publicPaths = ["/login", "/register"];
-  if (publicPaths.some((path) => pathname.startsWith(path))) {
+  // Páginas pública solo — si ya autenticado, ir al inbox
+  const publicOnly = ["/login", "/register", "/signup"];
+  if (publicOnly.some((p) => pathname.startsWith(p)) && token) {
+    return NextResponse.redirect(new URL("/inbox", request.url));
+  }
+
+  // Rutas pública — no requieren auth
+  if (publicOnly.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();
   }
 
-  // Verificar el cookie de sesión
-  const token = request.cookies.get("ic_token")?.value;
-
-  // Si no hay token, redirigir al login
+  // Requiere auth
   if (!token) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("from", pathname);
@@ -33,6 +36,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Aplicar el middleware solo a estas rutas
-  matcher: ["/inbox/:path*"],
+  matcher: ["/inbox/:path*", "/settings/:path*", "/login", "/register", "/signup"],
 };
