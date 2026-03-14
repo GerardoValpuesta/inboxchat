@@ -34,8 +34,13 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
+  // Widget customization
+  const [widgetTitle, setWidgetTitle] = useState("Soporte");
+  const [widgetColor, setWidgetColor] = useState("#1e293b");
+  const [savingWidget, setSavingWidget] = useState(false);
+  const [widgetSaved, setWidgetSaved] = useState(false);
+
   useEffect(() => {
-    // Obtener el api_key del workspace junto con el billing status
     Promise.all([
       fetch(`${SERVER_URL}/api/billing/status`, { headers: getAuthHeaders() as HeadersInit }),
       fetch(`${SERVER_URL}/api/workspace/me`, { headers: getAuthHeaders() as HeadersInit }),
@@ -55,7 +60,6 @@ export default function SettingsPage() {
         const me = await meRes.json() as {
           workspace: { name: string; ownerEmail: string; apiKey: string };
         };
-
         setInfo({
           name: me.workspace.name,
           ownerEmail: me.workspace.ownerEmail,
@@ -66,6 +70,13 @@ export default function SettingsPage() {
           isActive: billing.isActive,
           conversationCount: billing.conversationCount,
         });
+        // Cargar config actual del widget desde el servidor
+        const cfg = await fetch(`${SERVER_URL}/api/widget/config?key=${me.workspace.apiKey}`);
+        if (cfg.ok) {
+          const d = await cfg.json() as { title?: string; color?: string };
+          if (d.title) setWidgetTitle(d.title);
+          if (d.color) setWidgetColor(d.color);
+        }
       })
       .catch(() => router.push("/login"))
       .finally(() => setLoading(false));
@@ -83,6 +94,21 @@ export default function SettingsPage() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
+  }
+
+  async function saveWidgetConfig() {
+    setSavingWidget(true);
+    try {
+      await fetch(`${SERVER_URL}/api/workspace/widget`, {
+        method: "PATCH",
+        headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ title: widgetTitle, color: widgetColor }),
+      });
+      setWidgetSaved(true);
+      setTimeout(() => setWidgetSaved(false), 2000);
+    } finally {
+      setSavingWidget(false);
+    }
   }
 
   if (loading) {
@@ -104,7 +130,6 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="max-w-2xl mx-auto">
-        {/* Header */}
         <div className="mb-8">
           <button
             onClick={() => router.push("/inbox")}
@@ -132,30 +157,93 @@ export default function SettingsPage() {
               <div className="flex justify-between items-center py-2">
                 <span className="text-sm text-slate-500">Plan</span>
                 <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                  info?.isActive
-                    ? "bg-violet-100 text-violet-700"
-                    : "bg-amber-100 text-amber-700"
+                  info?.isActive ? "bg-violet-100 text-violet-700" : "bg-amber-100 text-amber-700"
                 }`}>
                   {info?.isActive ? "Pro" : `Trial${info?.trialDaysLeft ? ` · ${info.trialDaysLeft}d restantes` : ""}`}
                 </span>
               </div>
             </div>
             <div className="mt-4">
-              <Link
-                href="/settings/billing"
-                className="text-sm text-violet-600 hover:underline font-medium"
-              >
+              <Link href="/settings/billing" className="text-sm text-violet-600 hover:underline font-medium">
                 Gestionar suscripción →
               </Link>
+            </div>
+          </div>
+
+          {/* Widget personalización */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+            <h2 className="text-sm font-semibold text-slate-900 uppercase tracking-wide mb-2">Personalización del widget</h2>
+            <p className="text-xs text-slate-500 mb-5">Customize el título y color que ven tus visitantes.</p>
+
+            <div className="flex gap-4">
+              {/* Formulario */}
+              <div className="flex-1 space-y-3">
+                <div>
+                  <label className="text-xs font-medium text-slate-600 mb-1 block">Título del chat</label>
+                  <input
+                    type="text"
+                    value={widgetTitle}
+                    onChange={(e) => setWidgetTitle(e.target.value)}
+                    maxLength={30}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm text-slate-800 outline-none focus:border-violet-400 transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-600 mb-1 block">Color primario</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={widgetColor}
+                      onChange={(e) => setWidgetColor(e.target.value)}
+                      className="w-10 h-10 rounded-lg border border-slate-200 cursor-pointer p-0.5"
+                    />
+                    <input
+                      type="text"
+                      value={widgetColor}
+                      onChange={(e) => setWidgetColor(e.target.value)}
+                      className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-sm font-mono text-slate-700 outline-none focus:border-violet-400"
+                    />
+                  </div>
+                </div>
+                <button
+                  onClick={() => void saveWidgetConfig()}
+                  disabled={savingWidget}
+                  className="w-full py-2 text-sm font-semibold rounded-xl text-white transition-all disabled:opacity-50"
+                  style={{ background: widgetColor }}
+                >
+                  {widgetSaved ? "✓ Guardado" : savingWidget ? "Guardando..." : "Guardar cambios"}
+                </button>
+              </div>
+
+              {/* Preview del widget */}
+              <div className="flex-shrink-0 w-44">
+                <p className="text-xs font-medium text-slate-500 mb-2 text-center">Preview</p>
+                <div className="rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-white text-xs">
+                  <div className="p-2 flex items-center gap-1.5" style={{ background: widgetColor }}>
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white"
+                      style={{ background: "rgba(255,255,255,0.2)" }}>
+                      {widgetTitle.slice(0, 2).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="text-white font-semibold text-xs leading-tight">{widgetTitle || "Soporte"}</p>
+                      <p className="text-white/60 text-xs leading-tight">En línea</p>
+                    </div>
+                  </div>
+                  <div className="p-2 bg-slate-50 min-h-[40px] flex items-end">
+                    <div className="rounded-xl rounded-br-sm text-white text-xs px-2 py-1 ml-auto"
+                      style={{ background: widgetColor }}>
+                      Hola! 👋
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
           {/* API Key */}
           <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
             <h2 className="text-sm font-semibold text-slate-900 uppercase tracking-wide mb-2">API Key del Widget</h2>
-            <p className="text-xs text-slate-500 mb-4">
-              Usá esta key para instalar el widget en tu web.
-            </p>
+            <p className="text-xs text-slate-500 mb-4">Usá esta key para instalar el widget en tu web.</p>
             <div className="flex gap-2 mb-4">
               <code className="flex-1 bg-slate-100 rounded-lg px-3 py-2.5 text-xs font-mono text-slate-700 overflow-x-auto">
                 {info?.apiKey}

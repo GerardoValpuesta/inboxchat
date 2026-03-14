@@ -20,6 +20,10 @@
   var WORKSPACE_KEY = config.workspaceKey;
   var SERVER_URL = config.serverUrl || "http://localhost:3001";
 
+  // Branding — se actualiza desde el servidor via fetchConfig()
+  var widgetTitle = config.title || "Soporte";
+  var widgetColor = config.color || "#1e293b";
+
   if (!WORKSPACE_KEY) {
     console.error("[InboxChat] workspaceKey es requerido");
     return;
@@ -39,28 +43,28 @@
   function createStyles() {
     var style = document.createElement("style");
     style.textContent = [
-      "#ic-widget-btn{position:fixed;bottom:24px;right:24px;width:56px;height:56px;border-radius:50%;background:#1e293b;border:none;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;z-index:2147483646;transition:transform .2s,box-shadow .2s}",
+      "#ic-widget-btn{position:fixed;bottom:24px;right:24px;width:56px;height:56px;border-radius:50%;background:var(--ic-primary,#1e293b);border:none;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;z-index:2147483646;transition:transform .2s,box-shadow .2s}",
       "#ic-widget-btn:hover{transform:scale(1.08);box-shadow:0 6px 20px rgba(0,0,0,.3)}",
       "#ic-widget-btn svg{color:white;width:24px;height:24px}",
       "#ic-badge{position:absolute;top:-2px;right:-2px;background:#22c55e;color:white;border-radius:50%;width:18px;height:18px;font-size:10px;font-weight:700;display:none;align-items:center;justify-content:center;font-family:system-ui}",
       "#ic-panel{position:fixed;bottom:92px;right:24px;width:360px;height:520px;background:white;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.18);display:none;flex-direction:column;z-index:2147483645;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow:hidden;transition:opacity .2s,transform .2s}",
       "#ic-panel.open{display:flex}",
-      "#ic-header{background:#1e293b;padding:16px;display:flex;align-items:center;gap:10px;flex-shrink:0}",
-      "#ic-header-avatar{width:36px;height:36px;border-radius:50%;background:#334155;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:white}",
+      "#ic-header{background:var(--ic-primary,#1e293b);padding:16px;display:flex;align-items:center;gap:10px;flex-shrink:0}",
+      "#ic-header-avatar{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:white}",
       "#ic-header-info{flex:1}",
       "#ic-header-name{color:white;font-size:14px;font-weight:600;margin:0}",
-      "#ic-header-status{color:#94a3b8;font-size:12px;margin:0}",
-      "#ic-close-btn{background:none;border:none;cursor:pointer;color:#94a3b8;padding:4px;border-radius:6px}",
+      "#ic-header-status{color:rgba(255,255,255,0.65);font-size:12px;margin:0}",
+      "#ic-close-btn{background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.65);padding:4px;border-radius:6px}",
       "#ic-close-btn:hover{color:white}",
       "#ic-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;background:#f8fafc}",
       ".ic-msg{max-width:80%;padding:10px 14px;border-radius:16px;font-size:14px;line-height:1.5;word-break:break-word}",
       ".ic-msg.contact{background:white;color:#1e293b;border-radius:16px 16px 16px 4px;align-self:flex-start;box-shadow:0 1px 3px rgba(0,0,0,.08)}",
-      ".ic-msg.operator{background:#1e293b;color:white;border-radius:16px 16px 4px 16px;align-self:flex-end}",
+      ".ic-msg.operator{background:var(--ic-primary,#1e293b);color:white;border-radius:16px 16px 4px 16px;align-self:flex-end}",
       ".ic-msg-time{font-size:10px;margin-top:4px;opacity:.6}",
       "#ic-input-area{padding:12px;border-top:1px solid #e2e8f0;display:flex;gap:8px;background:white;flex-shrink:0}",
       "#ic-input{flex:1;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;font-size:14px;outline:none;resize:none;font-family:inherit;max-height:80px;color:#1e293b}",
       "#ic-input:focus{border-color:#94a3b8}",
-      "#ic-send-btn{width:38px;height:38px;border-radius:10px;background:#1e293b;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:opacity .15s}",
+      "#ic-send-btn{width:38px;height:38px;border-radius:10px;background:var(--ic-primary,#1e293b);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:opacity .15s}",
       "#ic-send-btn:disabled{opacity:.4;cursor:not-allowed}",
       "#ic-send-btn svg{color:white;width:16px;height:16px}",
       "#ic-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#94a3b8;text-align:center;padding:24px}",
@@ -68,6 +72,11 @@
       "@media(max-width:420px){#ic-panel{width:calc(100vw - 24px);right:12px;bottom:80px;height:480px}}",
     ].join("");
     document.head.appendChild(style);
+    // Inyectar CSS custom property del color primario
+    var brandStyle = document.createElement("style");
+    brandStyle.id = "ic-brand-color";
+    brandStyle.textContent = ":root { --ic-primary: " + widgetColor + "; }";
+    document.head.appendChild(brandStyle);
   }
 
   function createWidget() {
@@ -88,9 +97,9 @@
     panel.setAttribute("aria-label", "Chat de soporte");
     panel.innerHTML = [
       '<div id="ic-header">',
-      '  <div id="ic-header-avatar">IC</div>',
+      '  <div id="ic-header-avatar">' + widgetTitle.slice(0, 2).toUpperCase() + '</div>',
       '  <div id="ic-header-info">',
-      '    <p id="ic-header-name">Soporte</p>',
+      '    <p id="ic-header-name">' + escapeHtml(widgetTitle) + '</p>',
       '    <p id="ic-header-status">Conectando...</p>',
       "  </div>",
       '  <button id="ic-close-btn" aria-label="Cerrar chat">',
@@ -324,11 +333,36 @@
     });
   }
 
+  // ─── Fetch config del servidor ───────────────────────────────────────────
+  function fetchConfig(callback) {
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", SERVER_URL + "/api/widget/config?key=" + encodeURIComponent(WORKSPACE_KEY), true);
+    xhr.onload = function () {
+      if (xhr.status === 200) {
+        try {
+          var cfg = JSON.parse(xhr.responseText);
+          if (cfg.title) widgetTitle = cfg.title;
+          if (cfg.color) {
+            widgetColor = cfg.color;
+            // Actualizar CSS custom property si ya estaba inyectada
+            var brandEl = document.getElementById("ic-brand-color");
+            if (brandEl) brandEl.textContent = ":root { --ic-primary: " + cfg.color + "; }";
+          }
+        } catch (_) { /* ignorar errores de parseo */ }
+      }
+      callback();
+    };
+    xhr.onerror = function () { callback(); };
+    xhr.send();
+  }
+
   // Esperar al DOM
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
+    document.addEventListener("DOMContentLoaded", function () {
+      fetchConfig(init);
+    });
   } else {
-    init();
+    fetchConfig(init);
   }
 
   // Exponer API pública
