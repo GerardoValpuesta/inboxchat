@@ -95,10 +95,19 @@ export function registerSocketHandlers(io: AppServer, db: Database) {
     // ─── message:send ─────────────────────────────────────────────────────
     socket.on("message:send", async (payload, callback) => {
       try {
-        const { conversationId } = socket.data;
+        // El operador manda conversationId en el payload.
+        // El widget no lo manda (usa socket.data setado en conversation:start).
+        const conversationId = payload.conversationId || socket.data.conversationId;
         if (!conversationId) {
           callback({ ok: false, error: "No hay conversación activa" });
           return;
+        }
+
+        // Al operar, unirse a la sala de la conversación si no está ya
+        // (permite recibir mensajes en tiempo real de esa conversación)
+        if (socket.data.isOperator) {
+          await socket.join(`conversation:${conversationId}`);
+          socket.data.conversationId = conversationId;
         }
 
         // Validación básica del mensaje
