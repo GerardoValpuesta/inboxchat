@@ -32,16 +32,21 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
   // solo monta una vez y el interval siempre queda activo.
   useEffect(() => {
     const loadConversations = () => {
+      console.log("[inbox] polling /api/conversations...");
       fetch(`${SERVER_URL}/api/conversations`, {
         headers: getAuthHeaders(),
         cache: "no-store",
       })
-        .then((r) => r.json())
+        .then((r) => {
+          console.log("[inbox] poll status:", r.status);
+          return r.json();
+        })
         .then((data: { conversations: Conversation[] }) => {
+          console.log("[inbox] conversations received:", data.conversations?.length ?? 0);
           setConversations(data.conversations ?? []);
         })
         .catch((err: unknown) => {
-          console.error("[inbox] Error cargando conversaciones:", err);
+          console.error("[inbox] poll error:", err);
         });
     };
 
