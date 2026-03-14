@@ -1,10 +1,27 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import Script from "next/script";
 
 export const metadata: Metadata = {
   title: "InboxChat — Chat en vivo para tu web",
   description:
     "Agregá chat en vivo a tu web en 2 minutos. Sin servidores, sin configuración. Trial gratuito de 14 días.",
+};
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "InboxChat",
+  applicationCategory: "BusinessApplication",
+  operatingSystem: "Web",
+  description: "Agregá chat en vivo a tu web en 2 minutos. Sin servidores, sin configuración.",
+  url: "https://inboxchat.app",
+  offers: {
+    "@type": "Offer",
+    price: "0",
+    priceCurrency: "USD",
+    description: "Trial gratuito de 14 días",
+  },
 };
 
 export default function LandingPage() {
@@ -465,10 +482,19 @@ export default function LandingPage() {
       {/* Footer */}
       <footer style={{ padding: "24px", textAlign: "center", borderTop: "1px solid #e2e8f0", background: "white" }}>
         <p style={{ fontSize: "13px", color: "#94a3b8" }}>
-          © 2025 InboxChat · Todos los derechos reservados ·{" "}
-          <Link href="/login" style={{ color: "#94a3b8", textDecoration: "none" }}>Login</Link>
+          © 2025 InboxChat · Todos los derechos reservados{" "}
+          <Link href="/privacy" style={{ color: "#94a3b8", textDecoration: "none" }}>· Privacidad</Link>{" "}
+          <Link href="/terms" style={{ color: "#94a3b8", textDecoration: "none" }}>· Términos</Link>{" "}
+          <Link href="/login" style={{ color: "#94a3b8", textDecoration: "none" }}>· Login</Link>
         </p>
       </footer>
+
+      {/* JSON-LD structured data */}
+      <Script
+        id="json-ld"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
     </div>
   );
 }
