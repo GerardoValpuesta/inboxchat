@@ -38,8 +38,24 @@ async function bootstrap() {
   });
 
   // 4. Plugins de seguridad
+  // CORS: permite el dashboard (WEB_URL) + previews de Vercel + desarrollo local
+  const allowedOrigins = new Set([
+    env.WEB_URL,
+    "http://localhost:3000",
+    "http://localhost:3001",
+  ]);
+
   await app.register(cors, {
-    origin: env.WEB_URL,
+    origin: (origin, callback) => {
+      // Sin origin = petición server-to-server o mismo origen
+      if (!origin) return callback(null, true);
+      // Origin explícitamente permitido
+      if (allowedOrigins.has(origin)) return callback(null, true);
+      // Preview URLs de Vercel (*.vercel.app)
+      if (origin.endsWith(".vercel.app")) return callback(null, true);
+      // Bloquear el resto
+      callback(new Error(`CORS: origin no permitido: ${origin}`), false);
+    },
     credentials: true,
   });
 
