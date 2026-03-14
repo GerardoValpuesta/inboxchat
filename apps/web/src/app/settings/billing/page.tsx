@@ -9,7 +9,9 @@ const SERVER_URL =
 function getAuthHeaders(): HeadersInit {
   const token =
     typeof window !== "undefined" ? localStorage.getItem("ic_token") : null;
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  return token
+    ? { Authorization: `Bearer ${token}` }
+    : { "X-Workspace-Key": "dev_key_inboxchat_local" };
 }
 
 interface BillingStatus {
