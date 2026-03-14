@@ -133,11 +133,22 @@ export function ChatPanel({ socketRef }: ChatPanelProps) {
 
   const { contact } = activeConversation;
   const displayName = contact.name ?? contact.email ?? "Visitante anónimo";
+  const setActiveConversation = useInboxStore((s) => s.setActiveConversation);
 
   return (
     <main className="flex-1 flex flex-col bg-white min-w-0">
       {/* Header de la conversación */}
-      <header className="px-6 py-4 border-b border-slate-200 flex items-center gap-3 flex-shrink-0">
+      <header className="px-4 md:px-6 py-4 border-b border-slate-200 flex items-center gap-3 flex-shrink-0">
+        {/* Botón back — solo en mobile */}
+        <button
+          onClick={() => setActiveConversation(null)}
+          className="md:hidden flex items-center justify-center w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-500 flex-shrink-0"
+          aria-label="Volver a conversaciones"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
         <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center text-xs font-semibold text-slate-600">
           {getInitials(displayName)}
         </div>

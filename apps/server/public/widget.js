@@ -38,6 +38,8 @@
     isConnected: false,
     messages: [],
     operatorOnline: false,
+    preChatDone: false,     // se vuelve true cuando el visitante envió el pre-chat form
+    preChatContact: null,   // { name, email } capturado del form
   };
 
   // ─── UI ────────────────────────────────────────────────────────────────────
@@ -70,6 +72,16 @@
       "#ic-send-btn svg{color:white;width:16px;height:16px}",
       "#ic-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#94a3b8;text-align:center;padding:24px}",
       "#ic-empty p{font-size:14px;margin:8px 0 0 0}",
+      "#ic-prechat{position:absolute;inset:0;top:68px;background:white;display:flex;flex-direction:column;padding:20px;gap:12px;z-index:10}",
+      "#ic-prechat h3{font-size:14px;font-weight:600;color:#1e293b;margin:0 0 4px}",
+      "#ic-prechat p{font-size:12px;color:#64748b;margin:0}",
+      ".ic-field{display:flex;flex-direction:column;gap:4px;}",
+      ".ic-field label{font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.04em}",
+      ".ic-field input{padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;color:#1e293b;outline:none;transition:border-color .15s}",
+      ".ic-field input:focus{border-color:var(--ic-primary,#1e293b)}",
+      "#ic-prechat-btn{margin-top:4px;padding:11px;border-radius:10px;background:var(--ic-primary,#1e293b);color:white;font-size:14px;font-weight:600;border:none;cursor:pointer;transition:opacity .15s}",
+      "#ic-prechat-btn:hover{opacity:.9}",
+      "#ic-prechat .ic-skip{font-size:12px;color:#94a3b8;text-align:center;background:none;border:none;cursor:pointer;padding:4px;text-decoration:underline}",
       "@media(max-width:420px){#ic-panel{width:calc(100vw - 24px);right:12px;bottom:80px;height:480px}}",
     ].join("");
     document.head.appendChild(style);
@@ -107,6 +119,23 @@
       '    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>',
       "  </button>",
       "</div>",
+      // Pre-chat form (visible antes de conectar el socket)
+      '<div id="ic-prechat">',
+      '  <div>',
+      '    <h3>Hablemos 👋</h3>',
+      '    <p>Dejá tus datos y te respondemos rápido.</p>',
+      '  </div>',
+      '  <div class="ic-field">',
+      '    <label for="ic-name">Nombre</label>',
+      '    <input id="ic-name" type="text" placeholder="Tu nombre" autocomplete="name" />',
+      '  </div>',
+      '  <div class="ic-field">',
+      '    <label for="ic-email">Email</label>',
+      '    <input id="ic-email" type="email" placeholder="tu@email.com" autocomplete="email" />',
+      '  </div>',
+      '  <button id="ic-prechat-btn">Iniciar chat →</button>',
+      '  <button class="ic-skip" id="ic-prechat-skip">Continuar sin datos</button>',
+      '</div>',
       '<div id="ic-messages">',
       '  <div id="ic-empty">',
       '    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="#cbd5e1" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>',
@@ -224,12 +253,12 @@
   function startConversation() {
     if (!state.socket || state.conversationId) return;
 
-    var contact = config.contact || {};
+    var contact = state.preChatContact || config.contact || {};
     state.socket.emit(
       "conversation:start",
       {
         workspaceKey: WORKSPACE_KEY,
-        contact: contact.externalId ? contact : undefined,
+        contact: (contact.name || contact.email || contact.externalId) ? contact : undefined,
       },
       function (result) {
         if (result.ok) {
@@ -296,9 +325,39 @@
       state.isOpen = !state.isOpen;
       document.getElementById("ic-panel").classList.toggle("open", state.isOpen);
 
-      if (state.isOpen && !state.socket) {
+      // Solo conectar el socket si ya se completó el pre-chat (o si ya existe conv)
+      if (state.isOpen && !state.socket && state.preChatDone) {
         loadSocketIO(connectSocket);
       }
+    });
+
+    // Pre-chat: submit del form -> conectar socket con datos del contacto
+    function submitPreChat(skip) {
+      var name = skip ? "" : (document.getElementById("ic-name").value.trim() || "");
+      var email = skip ? "" : (document.getElementById("ic-email").value.trim() || "");
+      state.preChatContact = (name || email) ? { name: name, email: email } : null;
+      state.preChatDone = true;
+      // Ocultar el pre-chat form, mostrar chat normal
+      var preChatEl = document.getElementById("ic-prechat");
+      if (preChatEl) preChatEl.style.display = "none";
+      // Conectar socket
+      if (!state.socket) loadSocketIO(connectSocket);
+    }
+
+    document.getElementById("ic-prechat-btn").addEventListener("click", function () {
+      submitPreChat(false);
+    });
+
+    document.getElementById("ic-prechat-skip").addEventListener("click", function () {
+      submitPreChat(true);
+    });
+
+    // Enter en inputs del prechat
+    ["ic-name", "ic-email"].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") { submitPreChat(false); }
+      });
     });
 
     document.getElementById("ic-close-btn").addEventListener("click", function (e) {

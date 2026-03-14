@@ -39,6 +39,7 @@ export default function SettingsPage() {
   const [widgetColor, setWidgetColor] = useState("#1e293b");
   const [savingWidget, setSavingWidget] = useState(false);
   const [widgetSaved, setWidgetSaved] = useState(false);
+  const [widgetWelcome, setWidgetWelcome] = useState("¡Hola! 👋 ¿En qué podemos ayudarte?");
 
   useEffect(() => {
     Promise.all([
@@ -73,9 +74,10 @@ export default function SettingsPage() {
         // Cargar config actual del widget desde el servidor
         const cfg = await fetch(`${SERVER_URL}/api/widget/config?key=${me.workspace.apiKey}`);
         if (cfg.ok) {
-          const d = await cfg.json() as { title?: string; color?: string };
+          const d = await cfg.json() as { title?: string; color?: string; welcomeMessage?: string };
           if (d.title) setWidgetTitle(d.title);
           if (d.color) setWidgetColor(d.color);
+          if (d.welcomeMessage) setWidgetWelcome(d.welcomeMessage);
         }
       })
       .catch(() => router.push("/login"))
@@ -102,7 +104,7 @@ export default function SettingsPage() {
       await fetch(`${SERVER_URL}/api/workspace/widget`, {
         method: "PATCH",
         headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
-        body: JSON.stringify({ title: widgetTitle, color: widgetColor }),
+        body: JSON.stringify({ title: widgetTitle, color: widgetColor, welcomeMessage: widgetWelcome }),
       });
       setWidgetSaved(true);
       setTimeout(() => setWidgetSaved(false), 2000);
@@ -178,6 +180,17 @@ export default function SettingsPage() {
             <div className="flex gap-4">
               {/* Formulario */}
               <div className="flex-1 space-y-3">
+                <div>
+                  <label className="text-xs font-medium text-slate-600 mb-1 block">Mensaje de bienvenida</label>
+                  <textarea
+                    value={widgetWelcome}
+                    onChange={(e) => setWidgetWelcome(e.target.value)}
+                    maxLength={120}
+                    rows={2}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm text-slate-800 outline-none focus:border-violet-400 transition-colors resize-none"
+                    placeholder="¡Hola! 👋 ¿En qué podemos ayudarte?"
+                  />
+                </div>
                 <div>
                   <label className="text-xs font-medium text-slate-600 mb-1 block">Título del chat</label>
                   <input

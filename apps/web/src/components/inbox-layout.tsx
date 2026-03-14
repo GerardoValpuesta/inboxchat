@@ -77,9 +77,23 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
   }, [activeConversationId, setMessages, setLoadingMessages]);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50">
-      <ConversationList />
-      <ChatPanel socketRef={socketRef} />
+    <div className="flex h-[100dvh] overflow-hidden bg-slate-50">
+      {/* Sidebar — full width on mobile when NO active conv, hidden when conv is active */}
+      <div className={`
+        flex-shrink-0 w-full md:w-72
+        ${activeConversationId ? "hidden md:flex" : "flex"}
+        flex-col
+      `}>
+        <ConversationList />
+      </div>
+      {/* Chat panel — hidden on mobile when no active conv, full width when there is one */}
+      <div className={`
+        flex-1 min-w-0
+        ${activeConversationId ? "flex" : "hidden md:flex"}
+        flex-col
+      `}>
+        <ChatPanel socketRef={socketRef} />
+      </div>
     </div>
   );
 }
