@@ -22,9 +22,13 @@ interface Analytics {
   byDay: { day: string; count: number }[];
   messages: { operator: number; contact: number };
   avgResponseMinutes: number | null;
-  responseRate?: number | null;   // campo nuevo — puede faltar en backend viejo
-  topOperators?: { name: string; email: string; msgCount: number }[];  // campo nuevo
-  byHour?: { hour: number; count: number }[];  // campo nuevo
+  responseRate?: number | null;
+  topOperators?: { name: string; email: string; msgCount: number }[];
+  byHour?: { hour: number; count: number }[];
+}
+
+interface WidgetStats {
+  summary: { views: number; opens: number; openRate: number };
 }
 
 function MiniBarChart({ data, color = "bg-violet-500" }: { data: { label: string; count: number }[]; color?: string }) {
@@ -62,19 +66,28 @@ function Stat({ label, value, sub, color = "text-slate-900" }: { label: string; 
 export default function AnalyticsPage() {
   const router = useRouter();
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
+  const [widgetStats, setWidgetStats] = useState<WidgetStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState<7 | 14 | 30>(14);
 
   const load = useCallback((r: number) => {
     setLoading(true);
-    fetch(`${SERVER_URL}/api/analytics?range=${r}`, { headers: getAuthHeaders() })
-      .then((res) => {
-        if (res.status === 401) { router.push("/login"); return null; }
-        if (!res.ok) return null; // silenciar otros errores HTTP
-        return res.json() as Promise<Analytics>;
+    Promise.all([
+      fetch(`${SERVER_URL}/api/analytics?range=${r}`, { headers: getAuthHeaders() }),
+      fetch(`${SERVER_URL}/api/analytics/widget?days=${r}`, { headers: getAuthHeaders() }),
+    ])
+      .then(async ([analyticsRes, widgetRes]) => {
+        if (analyticsRes.status === 401) { router.push("/login"); return; }
+        if (analyticsRes.ok) {
+          const data = await analyticsRes.json() as Analytics;
+          setAnalytics(data);
+        }
+        if (widgetRes.ok) {
+          const wdata = await widgetRes.json() as WidgetStats;
+          setWidgetStats(wdata);
+        }
       })
-      .then((data) => { if (data) setAnalytics(data); })
-      .catch(() => {/* conexión fallida: silenciar */})
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, [router]);
 
@@ -190,6 +203,52 @@ export default function AnalyticsPage() {
                     : "text-amber-600"
                 }
               />
+            </div>
+
+            {/* Widget Analytics — segunda fila */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-2 h-2 rounded-full bg-blue-400" />
+                <h2 className="text-sm font-semibold text-slate-900">Widget</h2>
+                <span className="text-xs text-slate-400 ml-auto">Últimos {range} días</span>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                {[
+                  {
+                    label: "Vistas del widget",
+                    value: widgetStats?.summary.views ?? "—",
+                    sub: "páginas con widget cargado",
+                    color: "text-blue-600",
+                  },
+                  {
+                    label: "Chat abiertos",
+                    value: widgetStats?.summary.opens ?? "—",
+                    sub: "visitantes que hicieron click",
+                    color: "text-violet-600",
+                  },
+                  {
+                    label: "Tasa de apertura",
+                    value: widgetStats?.summary.openRate !== undefined ? `${widgetStats.summary.openRate}%` : "—",
+                    sub: "de visitantes que chatean",
+                    color: (widgetStats?.summary.openRate ?? 0) >= 5
+                      ? "text-emerald-600"
+                      : (widgetStats?.summary.openRate ?? 0) >= 2
+                      ? "text-amber-600"
+                      : "text-slate-400",
+                  },
+                ].map((s) => (
+                  <div key={s.label}>
+                    <p className="text-xs font-medium text-slate-500 mb-1">{s.label}</p>
+                    <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+                    <p className="text-xs text-slate-400 mt-1">{s.sub}</p>
+                  </div>
+                ))}
+              </div>
+              {!widgetStats && (
+                <p className="text-xs text-slate-400 text-center mt-2">
+                  Los datos aparecerán cuando el widget esté instalado y reciba visitas.
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
