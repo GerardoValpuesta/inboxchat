@@ -39,6 +39,7 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
 
   const [showContactPanel, setShowContactPanel] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const slaNotifiedRef = useRef<Set<string>>(new Set()); // convIds ya notificadas en esta sesión
 
   // Billing + workspace status para el TrialBanner y OnboardingChecklist
   const [billingInfo, setBillingInfo] = useState<{
@@ -89,6 +90,38 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
     const interval = setInterval(loadConversations, 5_000);
     return () => clearInterval(interval);
   }, [setConversations]);
+
+  // ── SLA Alert: notificar si una conv lleva más de 10min sin respuesta ──────
+  useEffect(() => {
+    const SLA_MINUTES = 10;
+    const checkSLA = () => {
+      if (Notification.permission !== "granted") return;
+      conversations.forEach((conv) => {
+        if (conv.status === "closed") return;
+        const lm = (conv as unknown as { lastMessage?: { sender: string; createdAt: string } }).lastMessage;
+        if (!lm) return;
+        // Solo alertar si el último mensaje es del visitante (no del operador)
+        if (lm.sender === "operator" || lm.sender === "note") return;
+        const ageMs = Date.now() - new Date(lm.createdAt).getTime();
+        const ageMins = ageMs / 1000 / 60;
+        if (ageMins < SLA_MINUTES) return;
+        // Ya notificamos esta conv en esta sesión
+        if (slaNotifiedRef.current.has(conv.id)) return;
+        // No notificar si el operador ya tiene esta conv activa
+        if (conv.id === activeConversationId) return;
+        slaNotifiedRef.current.add(conv.id);
+        const contact = (conv as unknown as { contact?: { name?: string; email?: string } }).contact;
+        const who = contact?.name ?? contact?.email ?? "Visitante";
+        void new Notification("⏰ Conversación sin respuesta", {
+          body: `${who} lleva +${SLA_MINUTES} min esperando respuesta`,
+          icon: "/favicon.ico",
+          tag: `sla-${conv.id}`,
+        });
+      });
+    };
+    const id = setInterval(checkSLA, 60_000);
+    return () => clearInterval(id);
+  }, [conversations, activeConversationId]);
 
   // Cargar mensajes al seleccionar una conversación
   useEffect(() => {
