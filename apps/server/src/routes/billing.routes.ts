@@ -155,4 +155,265 @@ export async function billingRoutes(
 
     return reply.send({ url: session.url });
   });
+
+  /**
+   * POST /api/billing/webhook — Stripe Webhook
+   *
+   * Stripe envía eventos firmados. Verificamos la firma con el rawBody.
+   * Requiere que Fastify tenga habilitado rawBody — configurado en index.ts.
+   *
+   * Eventos que manejamos:
+   *   checkout.session.completed → pago exitoso — plan = 'pro'
+   *   customer.subscription.updated → actualizar stripe_subscription_status
+   *   customer.subscription.deleted → cancelación — plan = 'free'
+   */
+  app.post(
+    "/api/billing/webhook",
+    {
+      config: { rawBody: true },
+    },
+    async (request, reply) => {
+      const webhookSecret = process.env["STRIPE_WEBHOOK_SECRET"];
+      if (!webhookSecret) {
+        return reply.status(503).send({ error: "Webhook no configurado" });
+      }
+
+      const sig = request.headers["stripe-signature"] as string | undefined;
+      if (!sig) return reply.status(400).send({ error: "Falta stripe-signature" });
+
+      const stripe = getStripe();
+      let event: import("stripe").Stripe.Event;
+
+      try {
+        // rawBody es el buffer original antes de ser parseado por Fastify
+        const rawBody = (request as unknown as { rawBody: Buffer }).rawBody;
+        event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Firma inválida";
+        return reply.status(400).send({ error: msg });
+      }
+
+      // ── checkout.session.completed ────────────────────────────────────────
+      if (event.type === "checkout.session.completed") {
+        const session = event.data.object as import("stripe").Stripe.Checkout.Session;
+        const workspaceId = session.metadata?.workspaceId;
+        const subscriptionId = session.subscription as string | null;
+        const customerId = session.customer as string | null;
+
+        if (workspaceId) {
+          await db`
+            UPDATE workspaces
+            SET
+              plan = 'pro',
+              stripe_subscription_id = COALESCE(${subscriptionId}, stripe_subscription_id),
+              stripe_customer_id = COALESCE(${customerId}, stripe_customer_id),
+              stripe_subscription_status = 'active',
+              trial_ends_at = NULL
+            WHERE id = ${workspaceId}
+          `;
+
+          // Email de bienvenida al plan Pro
+          const RESEND_API_KEY = process.env["RESEND_API_KEY"];
+          const EMAIL_FROM = process.env["EMAIL_FROM"] ?? "InboxChat <no-reply@inboxchat.app>";
+          if (RESEND_API_KEY) {
+            const info = await getWorkspaceInfo(db, workspaceId);
+            if (info?.owner_email) {
+              await fetch("https://api.resend.com/emails", {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${RESEND_API_KEY}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  from: EMAIL_FROM,
+                  to: [info.owner_email],
+                  subject: "🎉 ¡Bienvenido a InboxChat Pro!",
+                  html: `
+                    <div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:32px;color:#1e293b">
+                      <h1 style="font-size:24px;font-weight:700;margin-bottom:8px">¡Estás en Pro! 🚀</h1>
+                      <p style="color:#64748b;margin-bottom:24px">
+                        Tu workspace <strong>${info.name}</strong> ya tiene acceso completo a InboxChat Pro.
+                        Conversaciones ilimitadas, sin límite de tiempo.
+                      </p>
+                      <a href="${process.env["WEB_URL"] ?? "https://inboxchat.app"}/inbox"
+                         style="display:inline-block;padding:12px 24px;background:#7c3aed;color:white;border-radius:8px;font-weight:600;text-decoration:none;margin-bottom:24px">
+                        Ir al inbox →
+                      </a>
+                      <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0">
+                      <p style="font-size:12px;color:#94a3b8">
+                        Podés gestionar tu suscripción en cualquier momento desde
+                        <a href="${process.env["WEB_URL"] ?? "https://inboxchat.app"}/settings/billing" style="color:#7c3aed">Settings → Billing</a>.
+                      </p>
+                    </div>
+                  `,
+                }),
+              }).catch(() => {/* no bloquear el webhook si el email falla */});
+            }
+          }
+        }
+      }
+
+      // ── customer.subscription.updated ────────────────────────────────────
+      if (event.type === "customer.subscription.updated") {
+        const sub = event.data.object as import("stripe").Stripe.Subscription;
+        const workspaceId = sub.metadata?.workspaceId;
+        if (workspaceId) {
+          await db`
+            UPDATE workspaces
+            SET stripe_subscription_status = ${sub.status}
+            WHERE id = ${workspaceId}
+          `;
+        }
+      }
+
+      // ── customer.subscription.deleted ─────────────────────────────────────
+      if (event.type === "customer.subscription.deleted") {
+        const sub = event.data.object as import("stripe").Stripe.Subscription;
+        const workspaceId = sub.metadata?.workspaceId;
+        if (workspaceId) {
+          await db`
+            UPDATE workspaces
+            SET plan = 'free', stripe_subscription_status = 'canceled'
+            WHERE id = ${workspaceId}
+          `;
+        }
+      }
+
+      return reply.send({ received: true });
+    }
+  );
+
+  /**
+   * POST /api/billing/webhook — Stripe Webhook
+   *
+   * Fastify 4 no tiene rawBody nativo. Usamos un scope isolado con un
+   * addContentTypeParser que pasa el Buffer sin parsear a request.body,
+   * lo que permite a stripe.webhooks.constructEvent() verificar la firma HMAC.
+   *
+   * Eventos manejados:
+   *   checkout.session.completed → pago exitoso — plan = 'pro'
+   *   customer.subscription.updated → actualizar stripe_subscription_status
+   *   customer.subscription.deleted → cancelación — plan = 'free'
+   */
+  await app.register(async (scope) => {
+    // Preservar el raw buffer para verificación HMAC de Stripe
+    scope.addContentTypeParser(
+      "application/json",
+      { parseAs: "buffer" },
+      (_req, body, done) => { done(null, body); }
+    );
+
+    scope.post("/api/billing/webhook", async (request, reply) => {
+      const webhookSecret = process.env["STRIPE_WEBHOOK_SECRET"];
+      if (!webhookSecret) {
+        return reply.status(503).send({ error: "Webhook no configurado" });
+      }
+
+      const sig = request.headers["stripe-signature"] as string | undefined;
+      if (!sig) return reply.status(400).send({ error: "Falta stripe-signature" });
+
+      const stripe = getStripe();
+      let event: import("stripe").Stripe.Event;
+
+      try {
+        event = stripe.webhooks.constructEvent(
+          request.body as Buffer,
+          sig,
+          webhookSecret
+        );
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Firma inválida";
+        return reply.status(400).send({ error: msg });
+      }
+
+      // ── checkout.session.completed ────────────────────────────────────────
+      if (event.type === "checkout.session.completed") {
+        const session = event.data.object as import("stripe").Stripe.Checkout.Session;
+        const workspaceId = session.metadata?.workspaceId;
+        const subscriptionId = session.subscription as string | null;
+        const customerId = session.customer as string | null;
+
+        if (workspaceId) {
+          await db`
+            UPDATE workspaces
+            SET
+              plan = 'pro',
+              stripe_subscription_id = COALESCE(${subscriptionId}, stripe_subscription_id),
+              stripe_customer_id = COALESCE(${customerId}, stripe_customer_id),
+              stripe_subscription_status = 'active',
+              trial_ends_at = NULL
+            WHERE id = ${workspaceId}
+          `;
+
+          // Email de bienvenida al plan Pro
+          const RESEND_API_KEY = process.env["RESEND_API_KEY"];
+          const EMAIL_FROM = process.env["EMAIL_FROM"] ?? "InboxChat <no-reply@inboxchat.app>";
+          if (RESEND_API_KEY) {
+            const info = await getWorkspaceInfo(db, workspaceId);
+            if (info?.owner_email) {
+              const webUrl = process.env["WEB_URL"] ?? "https://inboxchat.app";
+              await fetch("https://api.resend.com/emails", {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${RESEND_API_KEY}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  from: EMAIL_FROM,
+                  to: [info.owner_email],
+                  subject: "🎉 ¡Bienvenido a InboxChat Pro!",
+                  html: `
+                    <div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:32px;color:#1e293b">
+                      <h1 style="font-size:24px;font-weight:700;margin-bottom:8px">¡Estás en Pro! 🚀</h1>
+                      <p style="color:#64748b;margin-bottom:24px">
+                        Tu workspace <strong>${info.name}</strong> ya tiene acceso completo a InboxChat Pro.
+                        Conversaciones ilimitadas, sin límite de tiempo.
+                      </p>
+                      <a href="${webUrl}/inbox"
+                         style="display:inline-block;padding:12px 24px;background:#7c3aed;color:white;border-radius:8px;font-weight:600;text-decoration:none;margin-bottom:24px">
+                        Ir al inbox →
+                      </a>
+                      <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0">
+                      <p style="font-size:12px;color:#94a3b8">
+                        Podés gestionar tu suscripción en cualquier momento desde
+                        <a href="${webUrl}/settings/billing" style="color:#7c3aed">Settings → Billing</a>.
+                      </p>
+                    </div>
+                  `,
+                }),
+              }).catch(() => {/* no bloquear el webhook si el email falla */});
+            }
+          }
+        }
+      }
+
+      // ── customer.subscription.updated ────────────────────────────────────
+      if (event.type === "customer.subscription.updated") {
+        const sub = event.data.object as import("stripe").Stripe.Subscription;
+        const workspaceId = sub.metadata?.workspaceId;
+        if (workspaceId) {
+          await db`
+            UPDATE workspaces
+            SET stripe_subscription_status = ${sub.status}
+            WHERE id = ${workspaceId}
+          `;
+        }
+      }
+
+      // ── customer.subscription.deleted ─────────────────────────────────────
+      if (event.type === "customer.subscription.deleted") {
+        const sub = event.data.object as import("stripe").Stripe.Subscription;
+        const workspaceId = sub.metadata?.workspaceId;
+        if (workspaceId) {
+          await db`
+            UPDATE workspaces
+            SET plan = 'free', stripe_subscription_status = 'canceled'
+            WHERE id = ${workspaceId}
+          `;
+        }
+      }
+
+      return reply.send({ received: true });
+    });
+  });
 }
