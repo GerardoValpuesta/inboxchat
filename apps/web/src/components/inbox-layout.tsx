@@ -48,6 +48,7 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
     conversationCount: number;
     apiKey: string;
     hasOperators: boolean;
+    slaMinutes: number;
   } | null>(null);
 
   useEffect(() => {
@@ -57,7 +58,7 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
       fetch(`${SERVER_URL}/api/operators`, { headers: getAuthHeaders() }).then((r) => r.json()),
     ]).then(([billing, me, ops]: [
       { trialDaysLeft: number | null; isActive: boolean; conversationCount: number },
-      { workspace: { apiKey: string } },
+      { workspace: { apiKey: string; slaMinutes?: number } },
       { operators: unknown[] },
     ]) => {
       setBillingInfo({
@@ -66,6 +67,7 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
         conversationCount: billing.conversationCount,
         apiKey: me.workspace.apiKey,
         hasOperators: (ops.operators ?? []).length > 1,
+        slaMinutes: me.workspace.slaMinutes ?? 10,
       });
     }).catch(() => {/* silenciar */});
   }, []);
@@ -91,23 +93,20 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
     return () => clearInterval(interval);
   }, [setConversations]);
 
-  // ── SLA Alert: notificar si una conv lleva más de 10min sin respuesta ──────
+  // ── SLA Alert: notificar si una conv lleva más del threshold sin respuesta ──
   useEffect(() => {
-    const SLA_MINUTES = 10;
+    const SLA_MINUTES = billingInfo?.slaMinutes ?? 10;
     const checkSLA = () => {
       if (Notification.permission !== "granted") return;
       conversations.forEach((conv) => {
         if (conv.status === "closed") return;
         const lm = (conv as unknown as { lastMessage?: { sender: string; createdAt: string } }).lastMessage;
         if (!lm) return;
-        // Solo alertar si el último mensaje es del visitante (no del operador)
         if (lm.sender === "operator" || lm.sender === "note") return;
         const ageMs = Date.now() - new Date(lm.createdAt).getTime();
         const ageMins = ageMs / 1000 / 60;
         if (ageMins < SLA_MINUTES) return;
-        // Ya notificamos esta conv en esta sesión
         if (slaNotifiedRef.current.has(conv.id)) return;
-        // No notificar si el operador ya tiene esta conv activa
         if (conv.id === activeConversationId) return;
         slaNotifiedRef.current.add(conv.id);
         const contact = (conv as unknown as { contact?: { name?: string; email?: string } }).contact;
@@ -121,7 +120,7 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
     };
     const id = setInterval(checkSLA, 60_000);
     return () => clearInterval(id);
-  }, [conversations, activeConversationId]);
+  }, [conversations, activeConversationId, billingInfo?.slaMinutes]);
 
   // Cargar mensajes al seleccionar una conversación
   useEffect(() => {

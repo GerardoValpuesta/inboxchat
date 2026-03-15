@@ -3,36 +3,36 @@ import type { Database } from "../db/client.js";
 import { verifyToken, extractTokenFromHeader } from "../lib/jwt.js";
 
 /**
- * GET /api/workspace/me
- * Devuelve info del workspace del operador autenticado (nombre, email, api_key).
+ * GET  /api/workspace/me  — info del workspace del operador autenticado
+ * PATCH /api/workspace/me — actualizar configuración (sla_minutes, etc.)
  */
 export async function workspaceRoutes(
   app: FastifyInstance,
   { db }: { db: Database }
 ) {
-  app.get("/api/workspace/me", async (request, reply) => {
-    const token = extractTokenFromHeader(request.headers.authorization);
-
-    // Fallback: X-Workspace-Key header
-    let workspaceKeyFromHeader = request.headers["x-workspace-key"] as string | undefined;
-
-    let workspaceId: string | null = null;
-
+  async function resolveWorkspaceId(
+    headers: Record<string, string | string[] | undefined>
+  ): Promise<string | null> {
+    const token = extractTokenFromHeader(headers.authorization as string | undefined);
     if (token) {
       const payload = verifyToken(token);
-      if (payload) workspaceId = payload.workspaceId;
+      if (payload?.workspaceId) return payload.workspaceId;
     }
-
-    if (!workspaceId && workspaceKeyFromHeader) {
+    const key = headers["x-workspace-key"] as string | undefined;
+    if (key) {
       const [ws] = await db<{ id: string }[]>`
-        SELECT id FROM workspaces WHERE api_key = ${workspaceKeyFromHeader} LIMIT 1
+        SELECT id FROM workspaces WHERE api_key = ${key} LIMIT 1
       `;
-      workspaceId = ws?.id ?? null;
+      return ws?.id ?? null;
     }
+    return null;
+  }
 
-    if (!workspaceId) {
-      return reply.status(401).send({ error: "No autenticado" });
-    }
+  app.get("/api/workspace/me", async (request, reply) => {
+    const workspaceId = await resolveWorkspaceId(
+      request.headers as Record<string, string | undefined>
+    );
+    if (!workspaceId) return reply.status(401).send({ error: "No autenticado" });
 
     const [workspace] = await db<{
       id: string;
@@ -40,16 +40,16 @@ export async function workspaceRoutes(
       owner_email: string;
       api_key: string;
       plan: string;
+      sla_minutes: number | null;
     }[]>`
-      SELECT id, name, owner_email, api_key, plan
+      SELECT id, name, owner_email, api_key, plan,
+             COALESCE(sla_minutes, 10) AS sla_minutes
       FROM workspaces
       WHERE id = ${workspaceId}
       LIMIT 1
     `;
 
-    if (!workspace) {
-      return reply.status(404).send({ error: "Workspace no encontrado" });
-    }
+    if (!workspace) return reply.status(404).send({ error: "Workspace no encontrado" });
 
     return reply.send({
       workspace: {
@@ -58,7 +58,27 @@ export async function workspaceRoutes(
         ownerEmail: workspace.owner_email,
         apiKey: workspace.api_key,
         plan: workspace.plan,
+        slaMinutes: workspace.sla_minutes ?? 10,
       },
     });
   });
+
+  // PATCH /api/workspace/me — actualizar configuración
+  app.patch<{ Body: { slaMinutes?: number } }>(
+    "/api/workspace/me",
+    async (request, reply) => {
+      const workspaceId = await resolveWorkspaceId(
+        request.headers as Record<string, string | undefined>
+      );
+      if (!workspaceId) return reply.status(401).send({ error: "No autenticado" });
+
+      const { slaMinutes } = request.body;
+      if (slaMinutes !== undefined) {
+        const mins = Math.max(1, Math.min(Number(slaMinutes), 480));
+        await db`UPDATE workspaces SET sla_minutes = ${mins} WHERE id = ${workspaceId}`;
+      }
+
+      return reply.send({ ok: true });
+    }
+  );
 }
