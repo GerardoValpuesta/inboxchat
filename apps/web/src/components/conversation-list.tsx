@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useInboxStore, selectActiveConversation } from "@/store/inbox.store";
 import { cn, getInitials, timeAgo, truncate } from "@/lib/utils";
@@ -83,6 +83,41 @@ export function ConversationList() {
   const isConnected = useInboxStore((s) => s.isConnected);
   const router = useRouter();
   const [filter, setFilter] = useState<"open" | "closed">("open");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Conversation[] | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const SERVER_URL = process.env["NEXT_PUBLIC_SERVER_URL"] ?? "http://localhost:3001";
+
+  function getAuthHeaders(): HeadersInit {
+    const token = typeof window !== "undefined" ? localStorage.getItem("ic_token") : null;
+    return token
+      ? { Authorization: `Bearer ${token}` }
+      : { "X-Workspace-Key": "dev_key_inboxchat_local" };
+  }
+
+  // Debounce search — 300ms
+  useEffect(() => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    if (!searchQuery.trim()) {
+      setSearchResults(null);
+      setIsSearching(false);
+      return;
+    }
+    setIsSearching(true);
+    searchTimerRef.current = setTimeout(() => {
+      fetch(`${SERVER_URL}/api/conversations/search?q=${encodeURIComponent(searchQuery)}`, {
+        headers: getAuthHeaders(),
+      })
+        .then((r) => r.json())
+        .then((data: { conversations: Conversation[] }) => {
+          setSearchResults(data.conversations ?? []);
+        })
+        .catch(() => setSearchResults([]))
+        .finally(() => setIsSearching(false));
+    }, 300);
+  }, [searchQuery, SERVER_URL]);
 
   function handleSelectConversation(conversationId: string) {
     setActiveConversation(conversationId);
@@ -95,9 +130,11 @@ export function ConversationList() {
     router.push("/login");
   }
 
-  const filtered = conversations.filter((c) =>
-    filter === "open" ? c.status === "open" || !c.status : c.status === "closed"
-  );
+  const filtered = searchResults !== null
+    ? searchResults
+    : conversations.filter((c) =>
+        filter === "open" ? c.status === "open" || !c.status : c.status === "closed"
+      );
 
   return (
     <aside className="w-72 flex-shrink-0 bg-white border-r border-slate-200 flex flex-col h-full">
@@ -109,6 +146,33 @@ export function ConversationList() {
             <div className={cn("w-2 h-2 rounded-full", isConnected ? "bg-brand-500" : "bg-slate-300")} />
             <span className="text-xs text-slate-500">{isConnected ? "online" : "offline"}</span>
           </div>
+        </div>
+        {/* Search bar */}
+        <div className="relative mb-3">
+          <svg className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Escape" && setSearchQuery("")}
+            placeholder="Buscar..."
+            className="w-full pl-7 pr-7 py-1.5 text-xs rounded-lg border border-slate-200 bg-slate-50 text-slate-800 placeholder:text-slate-400 outline-none focus:border-slate-400 transition-colors"
+          />
+          {isSearching && (
+            <svg className="w-3 h-3 text-slate-400 animate-spin absolute right-2.5 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
+          )}
+          {searchQuery && !isSearching && (
+            <button onClick={() => setSearchQuery("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
         </div>
         {/* Tabs open/closed */}
         <div className="flex bg-slate-100 rounded-lg p-0.5">

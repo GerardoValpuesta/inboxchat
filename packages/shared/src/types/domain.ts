@@ -18,6 +18,7 @@ export interface Conversation {
   contact: Contact;
   status: "open" | "closed";
   unreadCount: number;
+  assignedTo: string | null;  // operator ID
   lastMessage: Message | null;
   createdAt: string;
   updatedAt: string;

@@ -23,7 +23,7 @@ interface InboxLayoutProps {
 }
 
 export function InboxLayout({ workspaceId }: InboxLayoutProps) {
-  const socketRef = useSocket(workspaceId);
+  const { socketRef, typingMapRef } = useSocket(workspaceId);
   const { setConversations, setMessages, setLoadingMessages, activeConversationId } = useInboxStore();
 
   // Polling de conversaciones — carga inicial + refresca cada 5s.
@@ -92,7 +92,7 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
         ${activeConversationId ? "flex" : "hidden md:flex"}
         flex-col
       `}>
-        <ChatPanel socketRef={socketRef} />
+        <ChatPanel socketRef={socketRef} typingMapRef={typingMapRef} />
       </div>
     </div>
   );

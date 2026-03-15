@@ -59,6 +59,70 @@ export async function dashboardRoutes(
     return { conversations };
   });
 
+  // ─── GET /api/conversations/search?q= ────────────────────────────────────
+  app.get<{ Querystring: { q?: string } }>(
+    "/api/conversations/search",
+    async (request, reply) => {
+      const workspaceId = await resolveWorkspaceId(db, request.headers as Record<string, string | undefined>);
+      if (!workspaceId) return reply.status(401).send({ error: "No autorizado" });
+
+      const q = (request.query.q ?? "").trim();
+      if (!q) return reply.send({ conversations: [] });
+
+      // Buscar por nombre/email del contacto (ILIKE) o por contenido de mensajes (FTS)
+      const results = await db<{
+        id: string;
+        status: string;
+        updated_at: string;
+        unread_count: number;
+        assigned_to: string | null;
+        contact_id: string;
+        contact_name: string | null;
+        contact_email: string | null;
+      }[]>`
+        SELECT DISTINCT ON (c.id)
+          c.id, c.status, c.updated_at, c.unread_count, c.assigned_to,
+          co.id AS contact_id, co.name AS contact_name, co.email AS contact_email
+        FROM conversations c
+        JOIN contacts co ON co.id = c.contact_id
+        WHERE c.workspace_id = ${workspaceId}
+          AND (
+            co.name  ILIKE ${'%' + q + '%'}
+            OR co.email ILIKE ${'%' + q + '%'}
+            OR EXISTS (
+              SELECT 1 FROM messages m
+              WHERE m.conversation_id = c.id
+                AND to_tsvector('spanish', m.body) @@ plainto_tsquery('spanish', ${q})
+            )
+          )
+        ORDER BY c.id, c.updated_at DESC
+        LIMIT 20
+      `;
+
+      const conversations = results.map((r) => ({
+        id: r.id,
+        workspaceId,
+        status: r.status,
+        updatedAt: r.updated_at,
+        unreadCount: r.unread_count,
+        assignedTo: r.assigned_to,
+        lastMessage: null,
+        createdAt: r.updated_at,
+        contact: {
+          id: r.contact_id,
+          workspaceId,
+          name: r.contact_name,
+          email: r.contact_email,
+          externalId: null,
+          lastSeenAt: r.updated_at,
+          createdAt: r.updated_at,
+        },
+      }));
+
+      return reply.send({ conversations });
+    }
+  );
+
   // ─── GET /api/conversations/:id/messages ─────────────────────────────────
   app.get<{ Params: { id: string } }>(
     "/api/conversations/:id/messages",
@@ -135,4 +199,48 @@ export async function dashboardRoutes(
       return { ok: true };
     }
   );
+
+  // ─── POST /api/conversations/:id/assign ──────────────────────────────────
+  app.post<{
+    Params: { id: string };
+    Body: { operatorId: string | null };
+  }>("/api/conversations/:id/assign", async (request, reply) => {
+    const workspaceId = await resolveWorkspaceId(db, request.headers as Record<string, string | undefined>);
+    if (!workspaceId) return reply.status(401).send({ error: "No autenticado" });
+
+    const conversationId = request.params.id;
+    const { operatorId } = request.body;
+
+    // Verificar que la conversación pertenece al workspace
+    const [conv] = await db<{ id: string }[]>`
+      SELECT id FROM conversations
+      WHERE id = ${conversationId} AND workspace_id = ${workspaceId}
+      LIMIT 1
+    `;
+    if (!conv) return reply.status(404).send({ error: "Conversación no encontrada" });
+
+    // Si se asigna a un operador, verificar que pertenece al workspace
+    if (operatorId) {
+      const [op] = await db<{ id: string }[]>`
+        SELECT id FROM operators
+        WHERE id = ${operatorId} AND workspace_id = ${workspaceId}
+        LIMIT 1
+      `;
+      if (!op) return reply.status(400).send({ error: "Operador no válido" });
+    }
+
+    await db`
+      UPDATE conversations
+      SET assigned_to = ${operatorId ?? null}, updated_at = NOW()
+      WHERE id = ${conversationId} AND workspace_id = ${workspaceId}
+    `;
+
+    // Notificar a todos los operadores del workspace en tiempo real
+    ioRef.current?.to(`workspace:${workspaceId}`).emit("conversation:assigned", {
+      conversationId,
+      operatorId,
+    });
+
+    return { ok: true };
+  });
 }

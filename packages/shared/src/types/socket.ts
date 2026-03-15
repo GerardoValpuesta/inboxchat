@@ -61,6 +61,10 @@ export interface ServerToClientEvents {
   "conversation:updated": (payload: ConversationUpdatedPayload) => void;
   // Widget y Dashboard reciben este cuando el operador resuelve la conversación
   "conversation:closed": (payload: { conversationId: string }) => void;
+  // Indicador de escritura — recibido por ambos lados
+  "typing:update": (payload: { conversationId: string; isTyping: boolean; sender: "contact" | "operator" }) => void;
+  // Asignación de conversación — recibido por el dashboard
+  "conversation:assigned": (payload: { conversationId: string; operatorId: string | null }) => void;
 }
 
 /** Eventos que los CLIENTES emiten (escuchados por el server) */
@@ -75,6 +79,9 @@ export interface ClientToServerEvents {
     callback: (result: { ok: true; message: Message } | { ok: false; error: string }) => void
   ) => void;
   "operator:join": (workspaceId: string) => void;
+  // Typing indicators — emitidos por widget y dashboard
+  "typing:start": (payload: { conversationId: string }) => void;
+  "typing:stop": (payload: { conversationId: string }) => void;
 }
 
 /** Eventos inter-server (si se escala con Redis adapter) */

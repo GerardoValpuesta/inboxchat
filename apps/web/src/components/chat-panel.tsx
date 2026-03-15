@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { RefObject } from "react";
+import type { MutableRefObject, RefObject } from "react";
 import type { Socket } from "socket.io-client";
 import type { ClientToServerEvents, ServerToClientEvents } from "@inboxchat/shared";
 import { useInboxStore, selectActiveConversation } from "@/store/inbox.store";
@@ -22,6 +22,7 @@ type AppSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
 interface ChatPanelProps {
   socketRef: RefObject<AppSocket | null>;
+  typingMapRef: MutableRefObject<Map<string, { contact: boolean; operator: boolean }>>;
 }
 
 /**
@@ -29,7 +30,7 @@ interface ChatPanelProps {
  * Muestra el historial de mensajes de la conversación activa
  * y el input para que el operador responda.
  */
-export function ChatPanel({ socketRef }: ChatPanelProps) {
+export function ChatPanel({ socketRef, typingMapRef }: ChatPanelProps) {
   const activeConversation = useInboxStore(selectActiveConversation);
   const messages = useInboxStore((s) => s.messages);
   const isLoadingMessages = useInboxStore((s) => s.isLoadingMessages);
@@ -39,6 +40,33 @@ export function ChatPanel({ socketRef }: ChatPanelProps) {
   const [isSending, setIsSending] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  // Debounce ref para el typing:stop (1.5s sin escribir = stop)
+  const typingStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Canned responses
+  const [cannedResponses, setCannedResponses] = useState<{ id: string; shortcut: string; body: string }[]>([]);
+  const [cannedFilter, setCannedFilter] = useState<string | null>(null);
+  const [cannedSelected, setCannedSelected] = useState(0);
+  const [operators, setOperators] = useState<{ id: string; name: string; email: string }[]>([]);
+  const [isAssigning, setIsAssigning] = useState(false);
+
+  const filteredCanned = cannedFilter !== null
+    ? cannedResponses.filter((r) => r.shortcut.includes(cannedFilter))
+    : [];
+  const showCannedPicker = filteredCanned.length > 0;
+
+  // Cargar canned responses y operadores al montar
+  useEffect(() => {
+    const headers = getAuthHeaders();
+    Promise.all([
+      fetch(`${SERVER_URL}/api/canned-responses`, { headers }).then((r) => r.json()),
+      fetch(`${SERVER_URL}/api/operators`, { headers }).then((r) => r.json()),
+    ])
+      .then(([cannedData, operatorsData]: [{ cannedResponses: typeof cannedResponses }, { operators: typeof operators }]) => {
+        setCannedResponses(cannedData.cannedResponses ?? []);
+        setOperators(operatorsData.operators ?? []);
+      })
+      .catch(() => {/* silenciar: no crítico */});
+  }, []);
 
   // Scroll automático al último mensaje
   useEffect(() => {
@@ -87,7 +115,63 @@ export function ChatPanel({ socketRef }: ChatPanelProps) {
     );
   }
 
+  function handleInputChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    const val = e.target.value;
+    setInputValue(val);
+    const socket = socketRef.current;
+
+    // Canned responses: detectar /shortcut
+    if (val.startsWith("/")) {
+      setCannedFilter(val.slice(1).toLowerCase());
+      setCannedSelected(0);
+    } else {
+      setCannedFilter(null);
+    }
+
+    if (!socket || !activeConversation) return;
+    socket.emit("typing:start", { conversationId: activeConversation.id });
+    if (typingStopTimerRef.current) clearTimeout(typingStopTimerRef.current);
+    typingStopTimerRef.current = setTimeout(() => {
+      socket.emit("typing:stop", { conversationId: activeConversation.id });
+    }, 1_500);
+  }
+
+  function applyCannedResponse(canned: { shortcut: string; body: string }) {
+    setInputValue(canned.body);
+    setCannedFilter(null);
+    setCannedSelected(0);
+    // Cancelar el timer de typing — estamos rellenando, no escribiendo
+    if (typingStopTimerRef.current) clearTimeout(typingStopTimerRef.current);
+    const socket = socketRef.current;
+    if (socket && activeConversation) {
+      socket.emit("typing:stop", { conversationId: activeConversation.id });
+    }
+  }
+
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    // Navegación en el canned picker
+    if (showCannedPicker) {
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setCannedSelected((i) => Math.max(0, i - 1));
+        return;
+      }
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setCannedSelected((i) => Math.min(filteredCanned.length - 1, i + 1));
+        return;
+      }
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        const selected = filteredCanned[cannedSelected];
+        if (selected) applyCannedResponse(selected);
+        return;
+      }
+      if (e.key === "Escape") {
+        setCannedFilter(null);
+        return;
+      }
+    }
     // Enviar con Enter, nueva línea con Shift+Enter
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -159,6 +243,36 @@ export function ChatPanel({ socketRef }: ChatPanelProps) {
           )}
         </div>
         <div className="ml-auto flex items-center gap-2">
+          {/* Selector de asignación */}
+          {activeConversation.status === "open" && operators.length > 0 && (
+            <select
+              value={activeConversation.assignedTo ?? ""}
+              disabled={isAssigning}
+              onChange={async (e) => {
+                const operatorId = e.target.value || null;
+                setIsAssigning(true);
+                try {
+                  await fetch(`${SERVER_URL}/api/conversations/${activeConversation.id}/assign`, {
+                    method: "POST",
+                    headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+                    body: JSON.stringify({ operatorId }),
+                  });
+                  updateConversation(activeConversation.id, { assignedTo: operatorId });
+                } catch (err) {
+                  console.error("[chat] Error asignando:", err);
+                } finally {
+                  setIsAssigning(false);
+                }
+              }}
+              className="text-xs h-7 px-2 rounded-lg border border-slate-200 bg-white text-slate-700 outline-none hover:border-slate-300 focus:border-slate-400 transition-colors disabled:opacity-50"
+              aria-label="Asignar operador"
+            >
+              <option value="">Sin asignar</option>
+              {operators.map((op) => (
+                <option key={op.id} value={op.id}>{op.name}</option>
+              ))}
+            </select>
+          )}
           {activeConversation.status === "open" && (
             <button
               type="button"
@@ -228,10 +342,47 @@ export function ChatPanel({ socketRef }: ChatPanelProps) {
             );
           })
         )}
+        {/* Indicador de typing — el operador ve "el visitante está escribiendo..." */}
+        {activeConversation && typingMapRef.current.get(activeConversation.id)?.contact && (
+          <div className="flex items-end gap-2 justify-start px-1">
+            <div className="w-6 h-6 rounded-full bg-slate-200 flex-shrink-0" />
+            <div className="bg-slate-100 rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:0ms]" />
+              <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:150ms]" />
+              <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:300ms]" />
+            </div>
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
 
       {/* Input del operador — solo si la conversación está abierta */}
+      {/* Canned responses picker — aparece al escribir "/" */}
+      {showCannedPicker && (
+        <div className="mx-6 mb-1 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden">
+          <div className="px-3 py-1.5 border-b border-slate-100 flex items-center gap-1.5">
+            <kbd className="text-[10px] bg-slate-100 text-slate-500 rounded px-1.5 py-0.5 font-mono">/</kbd>
+            <span className="text-xs text-slate-500">Respuestas rápidas · ↑↓ navegar · Enter seleccionar · Esc cerrar</span>
+          </div>
+          <ul className="max-h-48 overflow-y-auto">
+            {filteredCanned.map((c, i) => (
+              <li key={c.id}>
+                <button
+                  type="button"
+                  onClick={() => applyCannedResponse(c)}
+                  className={cn(
+                    "w-full text-left px-4 py-2.5 flex flex-col gap-0.5 transition-colors",
+                    i === cannedSelected ? "bg-slate-100" : "hover:bg-slate-50"
+                  )}
+                >
+                  <span className="text-xs font-semibold text-slate-700">/{c.shortcut}</span>
+                  <span className="text-xs text-slate-500 truncate">{c.body}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {activeConversation.status === "closed" ? (
         <div className="px-6 py-4 border-t border-slate-200 flex-shrink-0">
           <div className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-slate-50 border border-slate-200">
@@ -249,7 +400,7 @@ export function ChatPanel({ socketRef }: ChatPanelProps) {
           <div className="flex items-end gap-3 bg-slate-50 rounded-xl border border-slate-200 px-4 py-3 focus-within:border-slate-400 transition-colors">
             <textarea
               value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
+              onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               placeholder="Escribí un mensaje... (Enter para enviar)"
               rows={1}

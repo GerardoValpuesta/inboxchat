@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
 import type {
   ServerToClientEvents,
@@ -26,6 +26,10 @@ type AppSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
  */
 export function useSocket(workspaceId: string) {
   const socketRef = useRef<AppSocket | null>(null);
+  // Map de conversationId → { contact: bool, operator: bool }
+  // Usamos useRef+forceUpdate para no re-renderizar todo el inbox en cada keystroke
+  const typingMapRef = useRef<Map<string, { contact: boolean; operator: boolean }>>(new Map());
+  const [, forceUpdate] = useState(0);
   const { setConnected, addConversation, addMessage, updateConversation } =
     useInboxStore();
 
@@ -124,6 +128,18 @@ export function useSocket(workspaceId: string) {
       updateConversation(conversationId, { status: "closed" });
     });
 
+    // Asignación de conversación — actualizar assignedTo en el store
+    socket.on("conversation:assigned", ({ conversationId, operatorId }) => {
+      updateConversation(conversationId, { assignedTo: operatorId });
+    });
+
+    // Typing indicators — actualizar el Map y forzar re-render solo del chat panel
+    socket.on("typing:update", ({ conversationId, isTyping, sender }) => {
+      const current = typingMapRef.current.get(conversationId) ?? { contact: false, operator: false };
+      typingMapRef.current.set(conversationId, { ...current, [sender]: isTyping });
+      forceUpdate((n: number) => n + 1);
+    });
+
     // ─── Cleanup ──────────────────────────────────────────────────────────
     return () => {
       socket.off("connect");
@@ -133,11 +149,13 @@ export function useSocket(workspaceId: string) {
       socket.off("message:received");
       socket.off("conversation:updated");
       socket.off("conversation:closed");
+      socket.off("conversation:assigned");
+      socket.off("typing:update");
       socket.disconnect();
       socketRef.current = null;
       setConnected(false);
     };
   }, [workspaceId, setConnected, addConversation, addMessage, updateConversation]);
 
-  return socketRef;
+  return { socketRef, typingMapRef };
 }

@@ -40,6 +40,10 @@ type AppSocket = Socket<
  * Patrón: receive -> validate -> persist -> emit
  */
 export function registerSocketHandlers(io: AppServer, db: Database) {
+  // Timers de auto-clear para typing indicators (por conversationId)
+  // Si el cliente se cae sin enviar typing:stop, el indicador desaparece igual a los 5s
+  const typingTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
   io.on("connection", (socket: AppSocket) => {
     // ─── conversation:start ───────────────────────────────────────────────
     socket.on("conversation:start", async (payload, callback) => {
@@ -259,11 +263,58 @@ export function registerSocketHandlers(io: AppServer, db: Database) {
       io.to(`workspace:${workspaceId}`).emit("operator:status", { online: true });
     });
 
+    // ─── typing:start / typing:stop ──────────────────────────────────────
+    socket.on("typing:start", ({ conversationId }) => {
+      const sender = socket.data.isOperator ? ("operator" as const) : ("contact" as const);
+      socket.to(`conversation:${conversationId}`).emit("typing:update", {
+        conversationId,
+        isTyping: true,
+        sender,
+      });
+
+      // Auto-clear: si el cliente no manda typing:stop en 5s, lo limpiamos automáticamente
+      const existingTimer = typingTimers.get(conversationId);
+      if (existingTimer) clearTimeout(existingTimer);
+      typingTimers.set(
+        conversationId,
+        setTimeout(() => {
+          typingTimers.delete(conversationId);
+          socket.to(`conversation:${conversationId}`).emit("typing:update", {
+            conversationId,
+            isTyping: false,
+            sender,
+          });
+        }, 5_000)
+      );
+    });
+
+    socket.on("typing:stop", ({ conversationId }) => {
+      const sender = socket.data.isOperator ? ("operator" as const) : ("contact" as const);
+      const timer = typingTimers.get(conversationId);
+      if (timer) {
+        clearTimeout(timer);
+        typingTimers.delete(conversationId);
+      }
+      socket.to(`conversation:${conversationId}`).emit("typing:update", {
+        conversationId,
+        isTyping: false,
+        sender,
+      });
+    });
+
     // ─── disconnect ───────────────────────────────────────────────────────
     socket.on("disconnect", () => {
       if (socket.data.isOperator && socket.data.workspaceId) {
         // Notificar al widget que el operador se fue offline
         io.to(`workspace:${socket.data.workspaceId}`).emit("operator:status", { online: false });
+      }
+      // Limpiar timer de typing si quedó pendiente
+      if (socket.data.conversationId) {
+        const timer = typingTimers.get(socket.data.conversationId);
+        if (timer) {
+          clearTimeout(timer);
+          typingTimers.delete(socket.data.conversationId);
+        }
       }
     });
   });
