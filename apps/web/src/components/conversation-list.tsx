@@ -83,10 +83,22 @@ export function ConversationList() {
   const isConnected = useInboxStore((s) => s.isConnected);
   const router = useRouter();
   const [filter, setFilter] = useState<"open" | "closed">("open");
+  const [assignFilter, setAssignFilter] = useState<"all" | "mine" | "unassigned">("all");
+  const [currentOperatorId, setCurrentOperatorId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Conversation[] | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Leer operatorId del JWT para el filtro "Mías"
+  useEffect(() => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("ic_token") : null;
+    if (!token) return;
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1] ?? "")) as { operatorId?: string };
+      setCurrentOperatorId(payload.operatorId ?? null);
+    } catch { /* token malformado */ }
+  }, []);
 
   const SERVER_URL = process.env["NEXT_PUBLIC_SERVER_URL"] ?? "http://localhost:3001";
 
@@ -132,9 +144,13 @@ export function ConversationList() {
 
   const filtered = searchResults !== null
     ? searchResults
-    : conversations.filter((c) =>
-        filter === "open" ? c.status === "open" || !c.status : c.status === "closed"
-      );
+    : conversations
+        .filter((c) => filter === "open" ? c.status === "open" || !c.status : c.status === "closed")
+        .filter((c) => {
+          if (assignFilter === "mine") return c.assignedTo === currentOperatorId;
+          if (assignFilter === "unassigned") return !c.assignedTo;
+          return true; // "all"
+        });
 
   return (
     <aside className="w-72 flex-shrink-0 bg-white border-r border-slate-200 flex flex-col h-full">
@@ -175,26 +191,47 @@ export function ConversationList() {
           )}
         </div>
         {/* Tabs open/closed */}
-        <div className="flex bg-slate-100 rounded-lg p-0.5">
-          <button
-            onClick={() => setFilter("open")}
-            className={cn(
-              "flex-1 text-xs font-medium py-1.5 rounded-md transition-all",
-              filter === "open" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
-            )}
-          >
-            Abiertas
-          </button>
-          <button
-            onClick={() => setFilter("closed")}
-            className={cn(
-              "flex-1 text-xs font-medium py-1.5 rounded-md transition-all",
-              filter === "closed" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
-            )}
-          >
-            Resueltas
-          </button>
-        </div>
+        {!searchQuery && (
+          <div className="flex bg-slate-100 rounded-lg p-0.5 mb-2">
+            <button
+              onClick={() => setFilter("open")}
+              className={cn(
+                "flex-1 text-xs font-medium py-1.5 rounded-md transition-all",
+                filter === "open" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+              )}
+            >
+              Abiertas
+            </button>
+            <button
+              onClick={() => setFilter("closed")}
+              className={cn(
+                "flex-1 text-xs font-medium py-1.5 rounded-md transition-all",
+                filter === "closed" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+              )}
+            >
+              Resueltas
+            </button>
+          </div>
+        )}
+        {/* Tabs de asignación — solo cuando hay search desactivado */}
+        {!searchQuery && (
+          <div className="flex gap-1">
+            {(["all", "mine", "unassigned"] as const).map((opt) => (
+              <button
+                key={opt}
+                onClick={() => setAssignFilter(opt)}
+                className={cn(
+                  "flex-1 text-[11px] font-medium py-1 rounded-md transition-all border",
+                  assignFilter === opt
+                    ? "bg-violet-50 text-violet-700 border-violet-200"
+                    : "text-slate-400 border-transparent hover:text-slate-600 hover:border-slate-200"
+                )}
+              >
+                {opt === "all" ? "Todas" : opt === "mine" ? "Mías" : "Sin asignar"}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Lista */}

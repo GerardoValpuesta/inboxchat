@@ -111,6 +111,31 @@ export function useSocket(workspaceId: string) {
           updatedAt: message.createdAt,
         });
       }
+      // Notificación browser — solo para mensajes del visitante cuando el operador no tiene foco
+      if (
+        message.sender === "contact" &&
+        typeof window !== "undefined" &&
+        !document.hasFocus() &&
+        "Notification" in window &&
+        Notification.permission === "granted"
+      ) {
+        const conv = useInboxStore.getState().conversations.find(
+          (c) => c.id === activeId
+        );
+        const contactName =
+          conv?.contact.name ?? conv?.contact.email ?? "Visitante";
+        const notif = new Notification(`Mensaje de ${contactName}`, {
+          body: message.body.length > 80
+            ? message.body.slice(0, 77) + "..."
+            : message.body,
+          icon: "/favicon.ico",
+          tag: `msg-${activeId}`, // colapsa múltiples notifs de la misma conv
+        });
+        notif.onclick = () => {
+          window.focus();
+          notif.close();
+        };
+      }
     });
 
     // Otro operador resolvió una conversación — actualizar el store en tiempo real
