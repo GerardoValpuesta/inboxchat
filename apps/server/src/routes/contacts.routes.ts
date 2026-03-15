@@ -2,23 +2,89 @@ import type { FastifyInstance } from "fastify";
 import type { Database } from "../db/client.js";
 import { extractTokenFromHeader, verifyToken } from "../lib/jwt.js";
 
-/**
- * GET /api/contacts/:contactId
- * Retorna datos del contacto + historial de conversaciones (sin mensajes completos).
- * Requiere auth JWT.
- */
 export async function contactsRoutes(
   app: FastifyInstance,
   { db }: { db: Database }
 ) {
-  app.get("/api/contacts/:contactId", async (request, reply) => {
-    const authHeader = request.headers["authorization"] as string | undefined;
-    if (!authHeader) return reply.status(401).send({ error: "No autorizado" });
+  // ─── Auth helper ────────────────────────────────────────────────────────────
+  function getWorkspaceId(authHeader: string | undefined): string | null {
     const token = extractTokenFromHeader(authHeader);
-    if (!token) return reply.status(401).send({ error: "No autorizado" });
-    const payload = verifyToken(token);
-    if (!payload) return reply.status(401).send({ error: "Token inválido" });
-    const workspaceId = payload.workspaceId;
+    if (!token) return null;
+    return verifyToken(token)?.workspaceId ?? null;
+  }
+
+  // ─── GET /api/contacts — lista con búsqueda + paginación ───────────────────
+  app.get<{
+    Querystring: { q?: string; limit?: string; offset?: string }
+  }>("/api/contacts", async (request, reply) => {
+    const workspaceId = getWorkspaceId(request.headers["authorization"] as string | undefined);
+    if (!workspaceId) return reply.status(401).send({ error: "No autorizado" });
+
+    const q = request.query.q?.trim() ?? "";
+    const limit = Math.min(Number(request.query.limit ?? 50), 100);
+    const offset = Number(request.query.offset ?? 0);
+
+    const contacts = await db<{
+      id: string; name: string | null; email: string | null;
+      external_id: string | null; last_seen_at: string; created_at: string;
+      conversation_count: string;
+    }[]>`
+      SELECT
+        ct.id, ct.name, ct.email, ct.external_id,
+        ct.last_seen_at, ct.created_at,
+        COUNT(c.id) AS conversation_count
+      FROM contacts ct
+      LEFT JOIN conversations c ON c.contact_id = ct.id
+      WHERE ct.workspace_id = ${workspaceId}
+        ${q ? db`AND (ct.name ILIKE ${"%" + q + "%"} OR ct.email ILIKE ${"%" + q + "%"})` : db``}
+      GROUP BY ct.id
+      ORDER BY ct.last_seen_at DESC NULLS LAST
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+
+    return reply.send({
+      contacts: contacts.map((c) => ({
+        id: c.id,
+        name: c.name,
+        email: c.email,
+        externalId: c.external_id,
+        lastSeenAt: c.last_seen_at,
+        createdAt: c.created_at,
+        conversationCount: Number(c.conversation_count),
+      })),
+      meta: { limit, offset, q },
+    });
+  });
+
+  // ─── PATCH /api/contacts/:contactId — actualizar datos del contacto ─────────
+  app.patch<{
+    Params: { contactId: string };
+    Body: { name?: string; email?: string; externalId?: string };
+  }>("/api/contacts/:contactId", async (request, reply) => {
+    const workspaceId = getWorkspaceId(request.headers["authorization"] as string | undefined);
+    if (!workspaceId) return reply.status(401).send({ error: "No autorizado" });
+
+    const { contactId } = request.params;
+    const { name, email, externalId } = request.body;
+
+    const result = await db<{ id: string }[]>`
+      UPDATE contacts
+      SET
+        name = COALESCE(${name ?? null}, name),
+        email = COALESCE(${email ?? null}, email),
+        external_id = COALESCE(${externalId ?? null}, external_id)
+      WHERE id = ${contactId} AND workspace_id = ${workspaceId}
+      RETURNING id
+    `;
+    if (!result.length) return reply.status(404).send({ error: "Contacto no encontrado" });
+
+    return reply.send({ ok: true });
+  });
+
+  // ─── GET /api/contacts/:contactId — detalle con historial ──────────────────
+  app.get("/api/contacts/:contactId", async (request, reply) => {
+    const workspaceId = getWorkspaceId(request.headers["authorization"] as string | undefined);
+    if (!workspaceId) return reply.status(401).send({ error: "No autorizado" });
 
     const { contactId } = request.params as { contactId: string };
 
