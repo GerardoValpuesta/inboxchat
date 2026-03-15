@@ -23,6 +23,8 @@ type AppSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 interface ChatPanelProps {
   socketRef: RefObject<AppSocket | null>;
   typingMapRef: MutableRefObject<Map<string, { contact: boolean; operator: boolean }>>;
+  onToggleContact?: () => void;
+  showContactPanel?: boolean;
 }
 
 /**
@@ -30,7 +32,7 @@ interface ChatPanelProps {
  * Muestra el historial de mensajes de la conversación activa
  * y el input para que el operador responda.
  */
-export function ChatPanel({ socketRef, typingMapRef }: ChatPanelProps) {
+export function ChatPanel({ socketRef, typingMapRef, onToggleContact, showContactPanel }: ChatPanelProps) {
   const activeConversation = useInboxStore(selectActiveConversation);
   const messages = useInboxStore((s) => s.messages);
   const isLoadingMessages = useInboxStore((s) => s.isLoadingMessages);
@@ -243,6 +245,25 @@ export function ChatPanel({ socketRef, typingMapRef }: ChatPanelProps) {
           )}
         </div>
         <div className="ml-auto flex items-center gap-2">
+          {/* Botón ver contacto */}
+          {onToggleContact && (
+            <button
+              type="button"
+              onClick={onToggleContact}
+              title={showContactPanel ? "Ocultar contacto" : "Ver contacto"}
+              className={cn(
+                "w-7 h-7 rounded-lg flex items-center justify-center transition-colors border",
+                showContactPanel
+                  ? "bg-violet-50 border-violet-200 text-violet-700"
+                  : "border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300"
+              )}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </button>
+          )}
           {/* Selector de asignación */}
           {activeConversation.status === "open" && operators.length > 0 && (
             <select

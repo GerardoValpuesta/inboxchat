@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSocket } from "@/hooks/use-socket";
 import { useInboxStore } from "@/store/inbox.store";
 import { ConversationList } from "@/components/conversation-list";
 import { ChatPanel } from "@/components/chat-panel";
 import { TrialBanner } from "@/components/trial-banner";
 import { OnboardingChecklist } from "@/components/onboarding-checklist";
+import { ContactPanel } from "@/components/contact-panel";
 import type { Conversation, Message } from "@inboxchat/shared";
 
 const SERVER_URL =
@@ -26,7 +27,16 @@ interface InboxLayoutProps {
 
 export function InboxLayout({ workspaceId }: InboxLayoutProps) {
   const { socketRef, typingMapRef } = useSocket(workspaceId);
-  const { setConversations, setMessages, setLoadingMessages, activeConversationId, conversations } = useInboxStore();
+  const {
+    setConversations,
+    setMessages,
+    setLoadingMessages,
+    setActiveConversation,
+    activeConversationId,
+    conversations,
+  } = useInboxStore();
+
+  const [showContactPanel, setShowContactPanel] = useState(false);
 
   // Billing + workspace status para el TrialBanner y OnboardingChecklist
   const [billingInfo, setBillingInfo] = useState<{
@@ -58,22 +68,14 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
   }, []);
 
   // Polling de conversaciones — carga inicial + refresca cada 5s.
-  // No usamos un ref guard para evitar bloquear el re-setup del interval.
-  // setConversations es una referencia estable de Zustand, por lo que el effect
-  // solo monta una vez y el interval siempre queda activo.
   useEffect(() => {
     const loadConversations = () => {
-      console.log("[inbox] polling /api/conversations...");
       fetch(`${SERVER_URL}/api/conversations`, {
         headers: getAuthHeaders(),
         cache: "no-store",
       })
-        .then((r) => {
-          console.log("[inbox] poll status:", r.status);
-          return r.json();
-        })
+        .then((r) => r.json())
         .then((data: { conversations: Conversation[] }) => {
-          console.log("[inbox] conversations received:", data.conversations?.length ?? 0);
           setConversations(data.conversations ?? []);
         })
         .catch((err: unknown) => {
@@ -88,7 +90,10 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
 
   // Cargar mensajes al seleccionar una conversación
   useEffect(() => {
-    if (!activeConversationId) return;
+    if (!activeConversationId) {
+      setShowContactPanel(false);
+      return;
+    }
 
     setLoadingMessages(true);
     fetch(
@@ -107,6 +112,13 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
       });
   }, [activeConversationId, setMessages, setLoadingMessages]);
 
+  const activeConversation = conversations.find((c) => c.id === activeConversationId);
+
+  const handleSelectFromHistory = useCallback((convId: string) => {
+    setActiveConversation(convId);
+    setShowContactPanel(false);
+  }, [setActiveConversation]);
+
   return (
     <div className="flex flex-col h-[100dvh] overflow-hidden bg-slate-50">
       {/* Trial banner — sticky, full width */}
@@ -123,7 +135,6 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
           ${activeConversationId ? "hidden md:flex" : "flex"}
           flex-col overflow-hidden
         `}>
-          {/* Onboarding checklist — solo en workspace nuevo/sin completar */}
           {billingInfo && conversations.length <= 3 && (
             <OnboardingChecklist
               conversationCount={billingInfo.conversationCount}
@@ -133,14 +144,34 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
           )}
           <ConversationList />
         </div>
-        {/* Chat panel */}
+
+        {/* Chat panel — columna 2 */}
         <div className={`
           flex-1 min-w-0
           ${activeConversationId ? "flex" : "hidden md:flex"}
           flex-col
         `}>
-          <ChatPanel socketRef={socketRef} typingMapRef={typingMapRef} />
+          <ChatPanel
+            socketRef={socketRef}
+            typingMapRef={typingMapRef}
+            onToggleContact={() => setShowContactPanel((v) => !v)}
+            showContactPanel={showContactPanel}
+          />
         </div>
+
+        {/* Contact detail panel — columna 3 */}
+        {showContactPanel && activeConversation && (
+          <ContactPanel
+            contactId={activeConversation.contact.id}
+            contactName={
+              activeConversation.contact.name ??
+              activeConversation.contact.email ??
+              "Visitante"
+            }
+            onClose={() => setShowContactPanel(false)}
+            onSelectConversation={handleSelectFromHistory}
+          />
+        )}
       </div>
     </div>
   );

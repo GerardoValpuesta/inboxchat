@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 const SERVER_URL =
   process.env["NEXT_PUBLIC_SERVER_URL"] ?? "http://localhost:3001";
@@ -16,27 +17,30 @@ function getAuthHeaders(): HeadersInit {
 }
 
 interface Analytics {
+  range: number;
   totals: { open: number; closed: number; total: number };
   byDay: { day: string; count: number }[];
   messages: { operator: number; contact: number };
   avgResponseMinutes: number | null;
+  responseRate: number | null;
+  topOperators: { name: string; email: string; msgCount: number }[];
+  byHour: { hour: number; count: number }[];
 }
 
-function MiniBarChart({ data }: { data: { day: string; count: number }[] }) {
+function MiniBarChart({ data, color = "bg-violet-500" }: { data: { label: string; count: number }[]; color?: string }) {
   const max = Math.max(...data.map((d) => d.count), 1);
   return (
-    <div className="flex items-end gap-1 h-20 mt-2">
+    <div className="flex items-end gap-0.5 h-20">
       {data.map((d) => {
-        const height = Math.max((d.count / max) * 100, 4);
-        const label = new Date(d.day).toLocaleDateString("es", { weekday: "short", day: "numeric" });
+        const height = Math.max((d.count / max) * 100, 3);
         return (
-          <div key={d.day} className="flex-1 flex flex-col items-center gap-1 group relative">
+          <div key={d.label} className="flex-1 flex flex-col items-center gap-1 group relative">
             <div
-              className="w-full rounded-t-sm bg-violet-500 transition-all group-hover:bg-violet-600"
+              className={`w-full rounded-t-sm ${color} opacity-80 group-hover:opacity-100 transition-all`}
               style={{ height: `${height}%` }}
             />
-            <span className="text-xs text-slate-400 hidden group-hover:block absolute -bottom-5 whitespace-nowrap">
-              {label}: {d.count}
+            <span className="text-[9px] text-slate-400 hidden group-hover:block absolute -bottom-5 whitespace-nowrap z-10 bg-white border border-slate-200 rounded px-1 py-0.5 shadow-sm">
+              {d.label}: {d.count}
             </span>
           </div>
         );
@@ -45,148 +49,254 @@ function MiniBarChart({ data }: { data: { day: string; count: number }[] }) {
   );
 }
 
+function Stat({ label, value, sub, color = "text-slate-900" }: { label: string; value: string | number; sub: string; color?: string }) {
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+      <p className="text-xs font-medium text-slate-500 mb-1">{label}</p>
+      <p className={`text-2xl font-bold ${color}`}>{value}</p>
+      <p className="text-xs text-slate-400 mt-1">{sub}</p>
+    </div>
+  );
+}
+
 export default function AnalyticsPage() {
   const router = useRouter();
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [range, setRange] = useState<7 | 14 | 30>(14);
 
-  useEffect(() => {
-    fetch(`${SERVER_URL}/api/analytics`, { headers: getAuthHeaders() })
-      .then((r) => {
-        if (!r.ok) { router.push("/login"); return null; }
-        return r.json() as Promise<Analytics>;
+  const load = useCallback((r: number) => {
+    setLoading(true);
+    fetch(`${SERVER_URL}/api/analytics?range=${r}`, { headers: getAuthHeaders() })
+      .then((res) => {
+        if (!res.ok) { router.push("/login"); return null; }
+        return res.json() as Promise<Analytics>;
       })
       .then((data) => { if (data) setAnalytics(data); })
       .catch(() => router.push("/login"))
       .finally(() => setLoading(false));
   }, [router]);
 
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-slate-50">
-        <div className="text-sm text-slate-400">Cargando analytics...</div>
-      </div>
-    );
-  }
+  useEffect(() => { load(range); }, [range, load]);
 
   const totalMessages = (analytics?.messages.operator ?? 0) + (analytics?.messages.contact ?? 0);
+  const resolveRate = analytics?.totals.total
+    ? Math.round((analytics.totals.closed / analytics.totals.total) * 100)
+    : 0;
+
+  // Preparar datos para el gráfico de horas (0-23)
+  const hourData = Array.from({ length: 24 }, (_, h) => {
+    const found = analytics?.byHour.find((b) => b.hour === h);
+    return { label: `${h}h`, count: found?.count ?? 0 };
+  });
+
+  const peakHour = analytics?.byHour.reduce(
+    (max, b) => (b.count > max.count ? b : max),
+    { hour: 0, count: 0 }
+  );
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-4xl mx-auto">
-        <div className="mb-8 flex items-center justify-between">
-          <div>
+    <div className="min-h-screen bg-slate-50">
+      {/* Header */}
+      <div className="bg-white border-b border-slate-200 px-6 py-4">
+        <div className="max-w-5xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-4">
             <button
               onClick={() => router.push("/inbox")}
-              className="text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1 mb-3"
+              className="text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1.5 transition-colors"
             >
-              ← Volver al inbox
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Inbox
             </button>
-            <h1 className="text-2xl font-bold text-slate-900">Analytics</h1>
-            <p className="text-slate-500 text-sm mt-1">Métricas de los últimos 14 días</p>
+            <h1 className="text-base font-semibold text-slate-900">Analytics</h1>
           </div>
-          <Link
-            href="/settings"
-            className="text-sm text-violet-600 hover:underline font-medium"
-          >
-            Settings →
-          </Link>
-        </div>
-
-        {/* KPI Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          {[
-            {
-              label: "Total conversaciones",
-              value: analytics?.totals.total ?? 0,
-              sub: `${analytics?.totals.open ?? 0} abiertas`,
-              color: "text-violet-600",
-            },
-            {
-              label: "Resueltas",
-              value: analytics?.totals.closed ?? 0,
-              sub: analytics?.totals.total
-                ? `${Math.round(((analytics.totals.closed) / analytics.totals.total) * 100)}% del total`
-                : "—",
-              color: "text-emerald-600",
-            },
-            {
-              label: "Mensajes (30d)",
-              value: totalMessages,
-              sub: `${analytics?.messages.operator ?? 0} del operador`,
-              color: "text-blue-600",
-            },
-            {
-              label: "Tiempo de respuesta",
-              value: analytics?.avgResponseMinutes
-                ? `${analytics.avgResponseMinutes}m`
-                : "—",
-              sub: "promedio primera respuesta",
-              color: analytics?.avgResponseMinutes && analytics.avgResponseMinutes < 5
-                ? "text-emerald-600"
-                : "text-amber-600",
-            },
-          ].map((kpi) => (
-            <div key={kpi.label} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-              <p className="text-xs font-medium text-slate-500 mb-1">{kpi.label}</p>
-              <p className={`text-2xl font-bold ${kpi.color}`}>{kpi.value}</p>
-              <p className="text-xs text-slate-400 mt-1">{kpi.sub}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Gráfico por día */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm mb-4">
-          <h2 className="text-sm font-semibold text-slate-900 mb-1">Conversaciones por día</h2>
-          <p className="text-xs text-slate-500 mb-4">Últimos 14 días</p>
-          {analytics?.byDay && analytics.byDay.length > 0 ? (
-            <MiniBarChart data={analytics.byDay} />
-          ) : (
-            <div className="h-20 flex items-center justify-center">
-              <p className="text-sm text-slate-400">Sin datos todavía</p>
-            </div>
-          )}
-          <div className="flex justify-between mt-2 pt-2 border-t border-slate-100">
-            <span className="text-xs text-slate-400">
-              {analytics?.byDay?.[0]
-                ? new Date(analytics.byDay[0].day).toLocaleDateString("es", { month: "short", day: "numeric" })
-                : "—"}
-            </span>
-            <span className="text-xs text-slate-400">
-              {analytics?.byDay?.at(-1)?.day
-                ? new Date(analytics.byDay.at(-1)!.day).toLocaleDateString("es", { month: "short", day: "numeric" })
-                : "—"}
-            </span>
-          </div>
-        </div>
-
-        {/* Mix de mensajes */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-          <h2 className="text-sm font-semibold text-slate-900 mb-4">Mix de mensajes (últimos 30d)</h2>
-          {totalMessages > 0 ? (
-            <div className="space-y-3">
-              {[
-                { label: "Visitantes", value: analytics?.messages.contact ?? 0, color: "bg-slate-200" },
-                { label: "Operador", value: analytics?.messages.operator ?? 0, color: "bg-violet-500" },
-              ].map((bar) => (
-                <div key={bar.label}>
-                  <div className="flex justify-between mb-1">
-                    <span className="text-xs font-medium text-slate-600">{bar.label}</span>
-                    <span className="text-xs text-slate-500">{bar.value} msgs</span>
-                  </div>
-                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${bar.color} transition-all`}
-                      style={{ width: `${(bar.value / totalMessages) * 100}%` }}
-                    />
-                  </div>
-                </div>
+          <div className="flex items-center gap-2">
+            {/* Range picker */}
+            <div className="flex items-center bg-slate-100 rounded-lg p-0.5">
+              {([7, 14, 30] as const).map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setRange(r)}
+                  className={cn(
+                    "text-xs font-medium px-3 py-1.5 rounded-md transition-all",
+                    range === r ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                  )}
+                >
+                  {r}d
+                </button>
               ))}
             </div>
-          ) : (
-            <p className="text-sm text-slate-400 text-center py-4">Sin mensajes todavía</p>
-          )}
+            <Link href="/settings" className="text-sm text-violet-600 hover:text-violet-700 font-medium transition-colors">
+              Settings →
+            </Link>
+          </div>
         </div>
+      </div>
+
+      <div className="max-w-5xl mx-auto px-6 py-6 space-y-5">
+        {loading ? (
+          <div className="flex items-center justify-center h-48">
+            <div className="flex flex-col items-center gap-3">
+              <svg className="w-8 h-8 text-slate-300 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              <p className="text-xs text-slate-400">Cargando métricas...</p>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* KPI Cards — fila 1 */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Stat
+                label="Total conversaciones"
+                value={analytics?.totals.total ?? 0}
+                sub={`${analytics?.totals.open ?? 0} abiertas · ${analytics?.totals.closed ?? 0} resueltas`}
+                color="text-violet-600"
+              />
+              <Stat
+                label="Tasa de resolución"
+                value={`${resolveRate}%`}
+                sub="conversaciones cerradas"
+                color={resolveRate >= 70 ? "text-emerald-600" : "text-amber-600"}
+              />
+              <Stat
+                label="Tiempo de respuesta"
+                value={analytics?.avgResponseMinutes ? `${analytics.avgResponseMinutes}m` : "—"}
+                sub="promedio primera respuesta"
+                color={
+                  !analytics?.avgResponseMinutes ? "text-slate-400"
+                    : analytics.avgResponseMinutes < 5 ? "text-emerald-600"
+                    : analytics.avgResponseMinutes < 15 ? "text-amber-600"
+                    : "text-red-500"
+                }
+              />
+              <Stat
+                label="Tasa de respuesta"
+                value={analytics?.responseRate !== null ? `${analytics?.responseRate}%` : "—"}
+                sub="chats con respuesta del operador"
+                color={
+                  analytics?.responseRate == null ? "text-slate-400"
+                    : analytics.responseRate >= 80 ? "text-emerald-600"
+                    : "text-amber-600"
+                }
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Conversaciones por día */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                <h2 className="text-sm font-semibold text-slate-900 mb-0.5">Conversaciones por día</h2>
+                <p className="text-xs text-slate-500 mb-4">Últimos {range} días</p>
+                {analytics?.byDay && analytics.byDay.length > 0 ? (
+                  <>
+                    <MiniBarChart
+                      data={analytics.byDay.map((d) => ({
+                        label: new Date(d.day).toLocaleDateString("es", { weekday: "short", day: "numeric" }),
+                        count: d.count,
+                      }))}
+                    />
+                    <div className="flex justify-between mt-3 pt-3 border-t border-slate-100">
+                      <span className="text-xs text-slate-400">
+                        {new Date(analytics.byDay[0]!.day).toLocaleDateString("es", { month: "short", day: "numeric" })}
+                      </span>
+                      <span className="text-xs text-slate-400">
+                        {new Date(analytics.byDay.at(-1)!.day).toLocaleDateString("es", { month: "short", day: "numeric" })}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="h-20 flex items-center justify-center">
+                    <p className="text-sm text-slate-400">Sin datos en este período</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Heatmap de horas */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                <h2 className="text-sm font-semibold text-slate-900 mb-0.5">Pico de actividad</h2>
+                <p className="text-xs text-slate-500 mb-4">
+                  Mensajes de visitantes por hora del día
+                  {peakHour && peakHour.count > 0 && (
+                    <span className="ml-1 text-violet-600 font-medium">· pico a las {peakHour.hour}h</span>
+                  )}
+                </p>
+                <MiniBarChart data={hourData} color="bg-blue-400" />
+                <div className="flex justify-between mt-3 pt-3 border-t border-slate-100">
+                  <span className="text-xs text-slate-400">00h</span>
+                  <span className="text-xs text-slate-400">12h</span>
+                  <span className="text-xs text-slate-400">23h</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Mix de mensajes */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                <h2 className="text-sm font-semibold text-slate-900 mb-4">Mix de mensajes</h2>
+                {totalMessages > 0 ? (
+                  <div className="space-y-4">
+                    {[
+                      { label: "Visitantes", value: analytics?.messages.contact ?? 0, color: "bg-slate-300" },
+                      { label: "Operadores", value: analytics?.messages.operator ?? 0, color: "bg-violet-500" },
+                    ].map((bar) => (
+                      <div key={bar.label}>
+                        <div className="flex justify-between mb-1.5">
+                          <span className="text-xs font-medium text-slate-600">{bar.label}</span>
+                          <span className="text-xs text-slate-500">{bar.value.toLocaleString()} msgs ({Math.round((bar.value / totalMessages) * 100)}%)</span>
+                        </div>
+                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${bar.color} transition-all duration-500`}
+                            style={{ width: `${(bar.value / totalMessages) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                    <p className="text-xs text-slate-400 pt-1">{totalMessages.toLocaleString()} mensajes totales en {range} días</p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400 text-center py-6">Sin mensajes en este período</p>
+                )}
+              </div>
+
+              {/* Top operadores */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                <h2 className="text-sm font-semibold text-slate-900 mb-4">Operadores más activos</h2>
+                {analytics?.topOperators && analytics.topOperators.length > 0 ? (
+                  <div className="space-y-3">
+                    {analytics.topOperators.map((op, i) => {
+                      const maxMsgs = analytics.topOperators[0]?.msgCount ?? 1;
+                      return (
+                        <div key={op.email} className="flex items-center gap-3">
+                          <div className="w-6 h-6 rounded-full bg-violet-100 flex items-center justify-center text-[10px] font-bold text-violet-700 flex-shrink-0">
+                            {i + 1}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs font-medium text-slate-700 truncate">{op.name || op.email}</span>
+                              <span className="text-xs text-slate-500 flex-shrink-0 ml-2">{op.msgCount}</span>
+                            </div>
+                            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-violet-400 rounded-full transition-all duration-500"
+                                style={{ width: `${(op.msgCount / maxMsgs) * 100}%` }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400 text-center py-6">Sin actividad de operadores</p>
+                )}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
