@@ -52,25 +52,57 @@ export function ChatPanel({ socketRef, typingMapRef, onToggleContact, showContac
   const [cannedSelected, setCannedSelected] = useState(0);
   const [operators, setOperators] = useState<{ id: string; name: string; email: string }[]>([]);
   const [isAssigning, setIsAssigning] = useState(false);
+  // Tags
+  const [allTags, setAllTags] = useState<{ id: string; name: string; color: string }[]>([]);
+  const [convTags, setConvTags] = useState<{ id: string; name: string; color: string }[]>([]);
+  const [showTagPicker, setShowTagPicker] = useState(false);
 
   const filteredCanned = cannedFilter !== null
     ? cannedResponses.filter((r) => r.shortcut.includes(cannedFilter))
     : [];
   const showCannedPicker = filteredCanned.length > 0;
 
-  // Cargar canned responses y operadores al montar
+  // Cargar canned responses, operadores y tags al montar
   useEffect(() => {
     const headers = getAuthHeaders();
     Promise.all([
       fetch(`${SERVER_URL}/api/canned-responses`, { headers }).then((r) => r.json()),
       fetch(`${SERVER_URL}/api/operators`, { headers }).then((r) => r.json()),
+      fetch(`${SERVER_URL}/api/tags`, { headers }).then((r) => r.json()),
     ])
-      .then(([cannedData, operatorsData]: [{ cannedResponses: typeof cannedResponses }, { operators: typeof operators }]) => {
+      .then(([cannedData, operatorsData, tagsData]: [
+        { cannedResponses: typeof cannedResponses },
+        { operators: typeof operators },
+        { tags: typeof allTags }
+      ]) => {
         setCannedResponses(cannedData.cannedResponses ?? []);
         setOperators(operatorsData.operators ?? []);
+        setAllTags(tagsData.tags ?? []);
       })
       .catch(() => {/* silenciar: no crítico */});
   }, []);
+
+  // Cargar tags de la conversación activa
+  useEffect(() => {
+    if (!activeConversation) { setConvTags([]); return; }
+    fetch(`${SERVER_URL}/api/conversations/${activeConversation.id}/tags`, { headers: getAuthHeaders() })
+      .then((r) => r.json())
+      .then((d: { tags: typeof convTags }) => setConvTags(d.tags ?? []))
+      .catch(() => setConvTags([]));
+  }, [activeConversation?.id]);
+
+  async function toggleTag(tag: { id: string; name: string; color: string }) {
+    if (!activeConversation) return;
+    const hasTag = convTags.some((t) => t.id === tag.id);
+    const method = hasTag ? "DELETE" : "POST";
+    await fetch(
+      `${SERVER_URL}/api/conversations/${activeConversation.id}/tags/${tag.id}`,
+      { method, headers: getAuthHeaders() }
+    );
+    setConvTags((prev) =>
+      hasTag ? prev.filter((t) => t.id !== tag.id) : [...prev, tag]
+    );
+  }
 
   // Scroll automático al último mensaje
   useEffect(() => {
@@ -314,6 +346,60 @@ export function ChatPanel({ socketRef, typingMapRef, onToggleContact, showContac
           >
             {activeConversation.status === "open" ? "Abierta" : "Cerrada"}
           </span>
+        </div>
+
+        {/* Tags row — debajo del header */}
+        <div className="px-4 pb-2.5 flex items-center gap-1.5 flex-wrap">
+          {convTags.map((tag) => (
+            <span
+              key={tag.id}
+              className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full"
+              style={{ backgroundColor: tag.color + "22", color: tag.color, border: `1px solid ${tag.color}44` }}
+            >
+              {tag.name}
+              <button
+                onClick={() => void toggleTag(tag)}
+                className="opacity-60 hover:opacity-100 transition-opacity ml-0.5 leading-none"
+                title={`Quitar tag ${tag.name}`}
+              >×</button>
+            </span>
+          ))}
+          {/* Botón + para agregar tag */}
+          <div className="relative">
+            <button
+              onClick={() => setShowTagPicker((v) => !v)}
+              className="text-[11px] text-slate-400 hover:text-slate-600 px-1.5 py-0.5 rounded-full border border-dashed border-slate-200 hover:border-slate-400 transition-colors"
+              title="Agregar tag"
+            >
+              + tag
+            </button>
+            {showTagPicker && allTags.length > 0 && (
+              <div className="absolute top-full left-0 mt-1 z-20 bg-white rounded-xl border border-slate-200 shadow-lg min-w-[160px] py-1">
+                {allTags.map((tag) => {
+                  const assigned = convTags.some((t) => t.id === tag.id);
+                  return (
+                    <button
+                      key={tag.id}
+                      onClick={() => { void toggleTag(tag); setShowTagPicker(false); }}
+                      className="w-full text-left px-3 py-1.5 text-xs hover:bg-slate-50 flex items-center justify-between gap-2"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <span
+                          className="w-2 h-2 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: tag.color }}
+                        />
+                        {tag.name}
+                      </span>
+                      {assigned && <span className="text-violet-500 text-[10px]">✓</span>}
+                    </button>
+                  );
+                })}
+                {allTags.length === 0 && (
+                  <p className="text-xs text-slate-400 px-3 py-2">Sin tags — creá uno en Settings</p>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
