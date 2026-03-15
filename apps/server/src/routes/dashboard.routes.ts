@@ -8,6 +8,7 @@ import {
   findWorkspaceByApiKey,
 } from "../db/queries.js";
 import { extractTokenFromHeader, verifyToken } from "../lib/jwt.js";
+import { sendCsatEmail } from "../lib/email.js";
 
 /**
  * Rutas REST del dashboard del operador.
@@ -75,6 +76,61 @@ export async function dashboardRoutes(
     const conversations = await listOpenConversations(db, workspaceId);
     return { conversations };
   });
+
+  // ─── PATCH /api/conversations/:id/status — abrir/cerrar conversación ─────────
+  app.patch<{ Params: { id: string }; Body: { status: "open" | "closed" } }>(
+    "/api/conversations/:id/status",
+    async (request, reply) => {
+      const workspaceId = await resolveWorkspaceId(db, request.headers as Record<string, string | undefined>);
+      if (!workspaceId) return reply.status(401).send({ error: "No autorizado" });
+
+      const { status } = request.body;
+      if (status !== "open" && status !== "closed") {
+        return reply.status(400).send({ error: "status debe ser 'open' o 'closed'" });
+      }
+
+      const [conv] = await db<{
+        id: string; status: string;
+        contact_email: string | null; contact_name: string | null;
+        workspace_name: string;
+      }[]>`
+        SELECT c.id, c.status,
+               co.email AS contact_email, co.name AS contact_name,
+               w.name AS workspace_name
+        FROM conversations c
+        JOIN contacts co ON co.id = c.contact_id
+        JOIN workspaces w ON w.id = c.workspace_id
+        WHERE c.id = ${request.params.id}
+          AND c.workspace_id = ${workspaceId}
+        LIMIT 1
+      `;
+      if (!conv) return reply.status(404).send({ error: "Conversación no encontrada" });
+      if (conv.status === status) return reply.send({ ok: true, status });
+
+      await db`
+        UPDATE conversations
+        SET status = ${status}, updated_at = NOW()
+        WHERE id = ${request.params.id}
+      `;
+
+      ioRef.current?.to(`workspace:${workspaceId}`).emit("conversation_updated", {
+        conversationId: request.params.id,
+        status,
+      });
+
+      // CSAT email al contacto al cerrar
+      if (status === "closed" && conv.contact_email && process.env["RESEND_API_KEY"]) {
+        void sendCsatEmail({
+          to: conv.contact_email,
+          workspaceName: conv.workspace_name,
+          ...(conv.contact_name ? { visitorName: conv.contact_name } : {}),
+          conversationId: request.params.id,
+        }).catch(() => {});
+      }
+
+      return reply.send({ ok: true, status });
+    }
+  );
 
   // ─── GET /api/conversations/search?q= ────────────────────────────────────
   app.get<{ Querystring: { q?: string } }>(

@@ -132,3 +132,56 @@ export async function sendSlaAlert(opts: {
 </html>`,
   });
 }
+/**
+ * CSAT — se envía al visitante/contacto cuando el operador cierra la conversación.
+ * Incluye 5 estrellas clickeables (sin backend real por ahora — preparado para implementación futura).
+ */
+export async function sendCsatEmail(opts: {
+  to: string;
+  workspaceName: string;
+  visitorName?: string;
+  conversationId: string;
+}): Promise<void> {
+  const resend = getResend();
+  const visitor = opts.visitorName ? `, ${opts.visitorName}` : "";
+  const stars = [1, 2, 3, 4, 5].map((n) => {
+    const emoji = n <= 2 ? "😞" : n === 3 ? "😐" : n === 4 ? "😊" : "😍";
+    return `<a href="mailto:?subject=CSAT+${n}" style="text-decoration:none;font-size:28px;margin:0 4px;filter:grayscale(0.2)" title="${n} estrella${n > 1 ? "s" : ""}">${emoji}</a>`;
+  }).join("");
+
+  await resend.emails.send({
+    from: FROM,
+    to: opts.to,
+    subject: `¿Cómo fue tu experiencia con ${opts.workspaceName}?`,
+    html: `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8" /></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f8fafc;margin:0;padding:40px 16px;">
+  <div style="max-width:480px;margin:0 auto;background:white;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;">
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#7c3aed 0%,#4f46e5 100%);padding:28px 32px;">
+      <div style="font-size:13px;color:rgba(255,255,255,0.7);margin-bottom:4px">InboxChat · ${opts.workspaceName}</div>
+      <h1 style="color:white;font-size:20px;font-weight:700;margin:0">Tu consulta fue resuelta 🎉</h1>
+    </div>
+    <!-- Body -->
+    <div style="padding:28px 32px;text-align:center;">
+      <p style="color:#374151;font-size:15px;margin:0 0 20px">
+        Hola${visitor}! ¿Cómo calificarías la atención que recibiste?
+      </p>
+      <div style="margin:0 0 24px;">${stars}</div>
+      <p style="color:#94a3b8;font-size:12px;margin:0">
+        Tu feedback nos ayuda a mejorar. Gracias por usar ${opts.workspaceName}.
+      </p>
+    </div>
+    <!-- Footer -->
+    <div style="padding:16px 32px;border-top:1px solid #e2e8f0;text-align:center;">
+      <p style="color:#94a3b8;font-size:12px;margin:0">
+        Powered by <a href="https://inboxchat.app" style="color:#7c3aed;text-decoration:none">InboxChat</a>
+      </p>
+    </div>
+  </div>
+</body>
+</html>`,
+  });
+}

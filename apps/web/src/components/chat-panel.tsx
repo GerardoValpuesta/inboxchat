@@ -112,14 +112,16 @@ export function ChatPanel({ socketRef, typingMapRef, onToggleContact, showContac
   async function handleCloseConversation() {
     if (!activeConversation || isClosing) return;
     setIsClosing(true);
+    const newStatus = activeConversation.status === "open" ? "closed" : "open";
     try {
-      await fetch(`${SERVER_URL}/api/conversations/${activeConversation.id}/close`, {
-        method: "POST",
-        headers: getAuthHeaders(),
+      await fetch(`${SERVER_URL}/api/conversations/${activeConversation.id}/status`, {
+        method: "PATCH",
+        headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
       });
-      updateConversation(activeConversation.id, { status: "closed" });
+      updateConversation(activeConversation.id, { status: newStatus });
     } catch (err) {
-      console.error("[chat] Error cerrando conversación:", err);
+      console.error("[chat] Error actualizando estado de conversación:", err);
     } finally {
       setIsClosing(false);
     }
@@ -326,16 +328,21 @@ export function ChatPanel({ socketRef, typingMapRef, onToggleContact, showContac
               ))}
             </select>
           )}
-          {activeConversation.status === "open" && (
-            <button
+          <button
               type="button"
               onClick={() => void handleCloseConversation()}
               disabled={isClosing}
-              className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors disabled:opacity-50 font-medium"
+              className={cn(
+                "text-xs px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-50 font-medium",
+                activeConversation.status === "open"
+                  ? "border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300"
+                  : "border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100"
+              )}
             >
-              {isClosing ? "Cerrando..." : "✓ Resolver"}
+              {isClosing
+                ? activeConversation.status === "open" ? "Cerrando..." : "Reabriendo..."
+                : activeConversation.status === "open" ? "✓ Resolver" : "↩ Reabrir"}
             </button>
-          )}
           <span
             className={cn(
               "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
