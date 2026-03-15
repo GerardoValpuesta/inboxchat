@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSocket } from "@/hooks/use-socket";
 import { useInboxStore } from "@/store/inbox.store";
 import { ConversationList } from "@/components/conversation-list";
 import { ChatPanel } from "@/components/chat-panel";
+import { TrialBanner } from "@/components/trial-banner";
+import { OnboardingChecklist } from "@/components/onboarding-checklist";
 import type { Conversation, Message } from "@inboxchat/shared";
 
 const SERVER_URL =
@@ -24,7 +26,36 @@ interface InboxLayoutProps {
 
 export function InboxLayout({ workspaceId }: InboxLayoutProps) {
   const { socketRef, typingMapRef } = useSocket(workspaceId);
-  const { setConversations, setMessages, setLoadingMessages, activeConversationId } = useInboxStore();
+  const { setConversations, setMessages, setLoadingMessages, activeConversationId, conversations } = useInboxStore();
+
+  // Billing + workspace status para el TrialBanner y OnboardingChecklist
+  const [billingInfo, setBillingInfo] = useState<{
+    trialDaysLeft: number | null;
+    isActive: boolean;
+    conversationCount: number;
+    apiKey: string;
+    hasOperators: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    Promise.all([
+      fetch(`${SERVER_URL}/api/billing/status`, { headers: getAuthHeaders() }).then((r) => r.json()),
+      fetch(`${SERVER_URL}/api/workspace/me`, { headers: getAuthHeaders() }).then((r) => r.json()),
+      fetch(`${SERVER_URL}/api/operators`, { headers: getAuthHeaders() }).then((r) => r.json()),
+    ]).then(([billing, me, ops]: [
+      { trialDaysLeft: number | null; isActive: boolean; conversationCount: number },
+      { workspace: { apiKey: string } },
+      { operators: unknown[] },
+    ]) => {
+      setBillingInfo({
+        trialDaysLeft: billing.trialDaysLeft,
+        isActive: billing.isActive,
+        conversationCount: billing.conversationCount,
+        apiKey: me.workspace.apiKey,
+        hasOperators: (ops.operators ?? []).length > 1,
+      });
+    }).catch(() => {/* silenciar */});
+  }, []);
 
   // Polling de conversaciones — carga inicial + refresca cada 5s.
   // No usamos un ref guard para evitar bloquear el re-setup del interval.
@@ -77,22 +108,39 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
   }, [activeConversationId, setMessages, setLoadingMessages]);
 
   return (
-    <div className="flex h-[100dvh] overflow-hidden bg-slate-50">
-      {/* Sidebar — full width on mobile when NO active conv, hidden when conv is active */}
-      <div className={`
-        flex-shrink-0 w-full md:w-72
-        ${activeConversationId ? "hidden md:flex" : "flex"}
-        flex-col
-      `}>
-        <ConversationList />
-      </div>
-      {/* Chat panel — hidden on mobile when no active conv, full width when there is one */}
-      <div className={`
-        flex-1 min-w-0
-        ${activeConversationId ? "flex" : "hidden md:flex"}
-        flex-col
-      `}>
-        <ChatPanel socketRef={socketRef} typingMapRef={typingMapRef} />
+    <div className="flex flex-col h-[100dvh] overflow-hidden bg-slate-50">
+      {/* Trial banner — sticky, full width */}
+      {billingInfo && (
+        <TrialBanner
+          trialDaysLeft={billingInfo.trialDaysLeft}
+          isActive={billingInfo.isActive}
+        />
+      )}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar */}
+        <div className={`
+          flex-shrink-0 w-full md:w-72
+          ${activeConversationId ? "hidden md:flex" : "flex"}
+          flex-col overflow-hidden
+        `}>
+          {/* Onboarding checklist — solo en workspace nuevo/sin completar */}
+          {billingInfo && conversations.length <= 3 && (
+            <OnboardingChecklist
+              conversationCount={billingInfo.conversationCount}
+              hasOperators={billingInfo.hasOperators}
+              apiKey={billingInfo.apiKey}
+            />
+          )}
+          <ConversationList />
+        </div>
+        {/* Chat panel */}
+        <div className={`
+          flex-1 min-w-0
+          ${activeConversationId ? "flex" : "hidden md:flex"}
+          flex-col
+        `}>
+          <ChatPanel socketRef={socketRef} typingMapRef={typingMapRef} />
+        </div>
       </div>
     </div>
   );
