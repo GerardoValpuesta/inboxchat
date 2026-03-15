@@ -64,6 +64,7 @@ export async function authRoutes(
       workspaceId: workspace.id as string,
       workspaceKey,
       email: operator.email,
+      name: operator.name,
       role: operator.role,
     });
 
@@ -113,6 +114,7 @@ export async function authRoutes(
       workspaceId: operator.workspaceId,
       workspaceKey: workspace?.api_key as string ?? "",
       email: operator.email,
+      name: operator.name,
       role: operator.role,
     });
 
@@ -155,4 +157,51 @@ export async function authRoutes(
       },
     };
   });
+
+  // ─── PATCH /api/auth/me ──────────────────────────────────────────────────────
+  app.patch<{ Body: { name?: string; currentPassword?: string; newPassword?: string } }>(
+    "/api/auth/me",
+    async (request, reply) => {
+      const token = extractTokenFromHeader(request.headers.authorization);
+      if (!token) return reply.status(401).send({ error: "Token requerido" });
+
+      const payload = verifyToken(token);
+      if (!payload) return reply.status(401).send({ error: "Token inválido" });
+
+      const operator = await findOperatorById(db, payload.sub);
+      if (!operator) return reply.status(404).send({ error: "Operador no encontrado" });
+
+      const { name, currentPassword, newPassword } = request.body;
+
+      // Cambio de contraseña
+      if (currentPassword && newPassword) {
+        if (newPassword.length < 8) {
+          return reply.status(400).send({ error: "La contraseña debe tener al menos 8 caracteres" });
+        }
+        const ok = await bcrypt.compare(currentPassword, operator.passwordHash);
+        if (!ok) return reply.status(401).send({ error: "Contraseña actual incorrecta" });
+        const newHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+        await db`UPDATE operators SET password_hash = ${newHash} WHERE id = ${operator.id}`;
+      }
+
+      // Cambio de nombre
+      const updatedName = name?.trim() || operator.name;
+      if (name?.trim() && name.trim() !== operator.name) {
+        await db`UPDATE operators SET name = ${updatedName} WHERE id = ${operator.id}`;
+      }
+
+      // Emitir nuevo token con el nombre actualizado
+      const [workspace] = await db`SELECT api_key FROM workspaces WHERE id = ${operator.workspaceId} LIMIT 1`;
+      const newToken = signToken({
+        sub: operator.id,
+        workspaceId: operator.workspaceId,
+        workspaceKey: workspace?.api_key as string ?? payload.workspaceKey,
+        email: operator.email,
+        name: updatedName,
+        role: operator.role,
+      });
+
+      return reply.send({ ok: true, token: newToken, name: updatedName });
+    }
+  );
 }

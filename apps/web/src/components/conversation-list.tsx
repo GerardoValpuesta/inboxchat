@@ -89,6 +89,7 @@ export function ConversationList({ searchInputRef }: ConversationListProps = {})
   const [filter, setFilter] = useState<"open" | "closed">("open");
   const [assignFilter, setAssignFilter] = useState<"all" | "mine" | "unassigned">("all");
   const [currentOperatorId, setCurrentOperatorId] = useState<string | null>(null);
+  const [operatorName, setOperatorName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Conversation[] | null>(null);
   const [isSearching, setIsSearching] = useState(false);
@@ -99,8 +100,9 @@ export function ConversationList({ searchInputRef }: ConversationListProps = {})
     const token = typeof window !== "undefined" ? localStorage.getItem("ic_token") : null;
     if (!token) return;
     try {
-      const payload = JSON.parse(atob(token.split(".")[1] ?? "")) as { operatorId?: string };
-      setCurrentOperatorId(payload.operatorId ?? null);
+      const payload = JSON.parse(atob(token.split(".")[1] ?? "")) as { operatorId?: string; sub?: string; name?: string };
+      setCurrentOperatorId(payload.sub ?? payload.operatorId ?? null);
+      setOperatorName(payload.name ?? "");
     } catch { /* token malformado */ }
   }, []);
 
@@ -270,6 +272,23 @@ export function ConversationList({ searchInputRef }: ConversationListProps = {})
 
       {/* Footer nav */}
       <div className="border-t border-slate-100 px-3 py-2 flex flex-col gap-0.5">
+        {/* Perfil del operador */}
+        <Link
+          href="/profile"
+          className="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors group mb-1"
+        >
+          <div className="w-6 h-6 rounded-full bg-violet-100 flex items-center justify-center text-[10px] font-bold text-violet-700 flex-shrink-0 group-hover:bg-violet-200 transition-colors">
+            {operatorName
+              ? operatorName.split(" ").slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("")
+              : "?"}
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-slate-700 truncate leading-tight">
+              {operatorName || "Mi perfil"}
+            </p>
+            <p className="text-[10px] text-slate-400 leading-tight">Ver perfil</p>
+          </div>
+        </Link>
         <Link
           href="/analytics"
           className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors"

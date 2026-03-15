@@ -8,6 +8,7 @@ export interface JwtPayload {
   workspaceId: string;
   workspaceKey: string;
   email: string;
+  name?: string;     // nombre del operador (opcional, retrocompatible)
   role: "owner" | "agent";
 }
 
