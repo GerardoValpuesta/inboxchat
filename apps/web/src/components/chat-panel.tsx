@@ -38,6 +38,7 @@ export function ChatPanel({ socketRef, typingMapRef, onToggleContact, showContac
   const isLoadingMessages = useInboxStore((s) => s.isLoadingMessages);
   const addMessage = useInboxStore((s) => s.addMessage);
   const updateConversation = useInboxStore((s) => s.updateConversation);
+  const setActiveConversation = useInboxStore((s) => s.setActiveConversation);
   const [inputValue, setInputValue] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
@@ -219,7 +220,6 @@ export function ChatPanel({ socketRef, typingMapRef, onToggleContact, showContac
 
   const { contact } = activeConversation;
   const displayName = contact.name ?? contact.email ?? "Visitante anónimo";
-  const setActiveConversation = useInboxStore((s) => s.setActiveConversation);
 
   return (
     <main className="flex-1 flex flex-col bg-white min-w-0">
