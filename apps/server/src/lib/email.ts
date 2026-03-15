@@ -67,3 +67,68 @@ export async function sendNewConversationEmail(opts: {
 </html>`,
   });
 }
+
+/**
+ * Alerta SLA — se envía al operador cuando una conversación lleva
+ * más de sla_minutes sin respuesta del equipo.
+ */
+export async function sendSlaAlert(opts: {
+  to: string;
+  workspaceName: string;
+  visitorName?: string;
+  conversationId: string;
+  waitingMinutes: number;
+  slaMinutes: number;
+  inboxUrl: string;
+}): Promise<void> {
+  const resend = getResend();
+  const visitor = opts.visitorName ?? "Un visitante";
+  const waiting = opts.waitingMinutes >= 60
+    ? `${Math.round(opts.waitingMinutes / 60)}h`
+    : `${opts.waitingMinutes} min`;
+
+  await resend.emails.send({
+    from: FROM,
+    to: opts.to,
+    subject: `⏰ Conversación sin respuesta (${waiting}) — ${opts.workspaceName}`,
+    html: `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8" /></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f8fafc;margin:0;padding:40px 16px;">
+  <div style="max-width:480px;margin:0 auto;background:white;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;">
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#dc2626 0%,#b91c1c 100%);padding:28px 32px;">
+      <div style="font-size:13px;color:rgba(255,255,255,0.7);margin-bottom:4px">InboxChat · Alerta SLA</div>
+      <h1 style="color:white;font-size:20px;font-weight:700;margin:0">Conversación esperando respuesta</h1>
+    </div>
+    <!-- Body -->
+    <div style="padding:28px 32px;">
+      <p style="color:#374151;font-size:15px;margin:0 0 16px">
+        <strong>${visitor}</strong> está esperando una respuesta hace
+        <strong style="color:#dc2626">${waiting}</strong> en <strong>${opts.workspaceName}</strong>.
+      </p>
+      <div style="background:#fef2f2;border-left:3px solid #dc2626;border-radius:0 8px 8px 0;padding:14px 18px;margin-bottom:24px;">
+        <p style="color:#7f1d1d;font-size:13px;margin:0;">
+          Tu SLA configurado es de <strong>${opts.slaMinutes} minutos</strong>.
+          Esta conversación lo superó hace ${waiting}.
+        </p>
+      </div>
+      <a
+        href="${opts.inboxUrl}"
+        style="display:inline-block;background:linear-gradient(135deg,#dc2626 0%,#b91c1c 100%);color:white;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px;"
+      >
+        Responder ahora →
+      </a>
+    </div>
+    <!-- Footer -->
+    <div style="padding:16px 32px;border-top:1px solid #e2e8f0;text-align:center;">
+      <p style="color:#94a3b8;font-size:12px;margin:0">
+        Podés ajustar el threshold de SLA en InboxChat → Settings → Notificaciones
+      </p>
+    </div>
+  </div>
+</body>
+</html>`,
+  });
+}

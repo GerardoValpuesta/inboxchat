@@ -56,6 +56,51 @@ export async function contactsRoutes(
     });
   });
 
+  // ─── GET /api/contacts/export — descarga CSV con todos los contactos ─────────
+  // IMPORTANTE: debe ir ANTES del :contactId para no colisionar con el param
+  app.get("/api/contacts/export", async (request, reply) => {
+    const workspaceId = getWorkspaceId(request.headers["authorization"] as string | undefined);
+    if (!workspaceId) return reply.status(401).send({ error: "No autorizado" });
+
+    const contacts = await db<{
+      id: string; name: string | null; email: string | null;
+      external_id: string | null; last_seen_at: string | null; created_at: string;
+      conversation_count: string;
+    }[]>`
+      SELECT
+        ct.id, ct.name, ct.email, ct.external_id,
+        ct.last_seen_at, ct.created_at,
+        COUNT(c.id) AS conversation_count
+      FROM contacts ct
+      LEFT JOIN conversations c ON c.contact_id = ct.id
+      WHERE ct.workspace_id = ${workspaceId}
+      GROUP BY ct.id
+      ORDER BY ct.last_seen_at DESC NULLS LAST
+    `;
+
+    // Generar CSV — escapar comillas dobles en los campos
+    const escape = (v: string | null) => `"${(v ?? "").replace(/"/g, '""')}"`;
+    const header = "ID,Nombre,Email,ID Externo,Conversaciones,Primera visita,Última visita\n";
+    const rows = contacts.map((c) =>
+      [
+        escape(c.id),
+        escape(c.name),
+        escape(c.email),
+        escape(c.external_id),
+        c.conversation_count,
+        escape(c.created_at ? new Date(c.created_at).toISOString().slice(0, 10) : null),
+        escape(c.last_seen_at ? new Date(c.last_seen_at).toISOString().slice(0, 10) : null),
+      ].join(",")
+    );
+    const csv = header + rows.join("\n");
+
+    const date = new Date().toISOString().slice(0, 10);
+    return reply
+      .header("Content-Type", "text/csv; charset=utf-8")
+      .header("Content-Disposition", `attachment; filename="contacts-${date}.csv"`)
+      .send(csv);
+  });
+
   // ─── PATCH /api/contacts/:contactId — actualizar datos del contacto ─────────
   app.patch<{
     Params: { contactId: string };

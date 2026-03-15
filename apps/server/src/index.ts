@@ -184,6 +184,10 @@ async function bootstrap() {
   // 10. Iniciar servidor
   await app.listen({ port: env.PORT, host: env.HOST });
   app.log.info(`Socket.io listo en ws://${env.HOST}:${env.PORT}`);
+
+  // 11. SLA cron — monitorea convs sin respuesta y envía alertas por email
+  const { startSlaCron } = await import("./lib/sla-cron.js");
+  void startSlaCron(db);
 }
 
 bootstrap().catch((err: unknown) => {
