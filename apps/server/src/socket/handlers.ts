@@ -102,6 +102,13 @@ export function registerSocketHandlers(io: AppServer, db: Database) {
         socket.data.contactId = contact.id;
         socket.data.conversationId = conversationRow.id;
 
+        // 4b. Persistir Session Context (últimas páginas visitadas) como nota de sistema
+        const pageHistory = (payload as { pageHistory?: { url: string; title: string; ts: string }[] }).pageHistory;
+        if (Array.isArray(pageHistory) && pageHistory.length > 0) {
+          const ctxBody = `__ic_ctx__${JSON.stringify(pageHistory)}`;
+          await saveMessage(db, conversationRow.id, ctxBody, "note");
+        }
+
         const conversation = {
           ...conversationRow,
           contact,

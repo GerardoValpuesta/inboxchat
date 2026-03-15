@@ -50,6 +50,41 @@
     preChatContact: null,
   };
 
+  // ─── Session Context: rastrear últimas 5 páginas visitadas ──────────────────────
+  var PAGE_HISTORY_KEY = "ic_ph_" + WORKSPACE_KEY;
+  var MAX_PAGES = 5;
+
+  function getPageHistory() {
+    try {
+      return JSON.parse(sessionStorage.getItem(PAGE_HISTORY_KEY) || "[]");
+    } catch(_) { return []; }
+  }
+
+  function trackPage() {
+    try {
+      var history = getPageHistory();
+      var entry = {
+        url: window.location.pathname + (window.location.search || ""),
+        title: document.title || window.location.pathname,
+        ts: new Date().toISOString(),
+      };
+      // Evitar duplicados consecutivos
+      if (history.length > 0 && history[history.length - 1].url === entry.url) return;
+      history.push(entry);
+      if (history.length > MAX_PAGES) history = history.slice(-MAX_PAGES);
+      sessionStorage.setItem(PAGE_HISTORY_KEY, JSON.stringify(history));
+    } catch(_) {}
+  }
+
+  // Rastrear en carga inicial y en cambios de URL (SPA-friendly)
+  trackPage();
+  var _pushState = history.pushState;
+  history.pushState = function() {
+    _pushState.apply(history, arguments);
+    trackPage();
+  };
+  window.addEventListener("popstate", trackPage);
+
   // ─── UI ────────────────────────────────────────────────────────────────────
   function createStyles() {
     var style = document.createElement("style");
@@ -305,6 +340,7 @@
       {
         workspaceKey: WORKSPACE_KEY,
         contact: (contact.name || contact.email || contact.externalId) ? contact : undefined,
+        pageHistory: getPageHistory(),  // las últimas páginas visitadas
       },
       function (result) {
         if (result.ok) {

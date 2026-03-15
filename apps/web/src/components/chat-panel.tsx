@@ -319,12 +319,41 @@ export function ChatPanel({ socketRef, typingMapRef, onToggleContact, showContac
 
       {/* Area de mensajes */}
       <div className="flex-1 overflow-y-auto px-6 py-4 flex flex-col gap-3">
-        {messages.length === 0 ? (
+        {/* Session Context — páginas visitadas antes del chat */}
+        {(() => {
+          const ctxMsg = messages.find((m) => m.body.startsWith("__ic_ctx__"));
+          if (!ctxMsg) return null;
+          try {
+            const pages = JSON.parse(ctxMsg.body.slice(10)) as { url: string; title: string; ts: string }[];
+            return (
+              <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 mb-1">
+                <p className="text-[10px] font-semibold text-blue-500 uppercase tracking-wide mb-2 flex items-center gap-1">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                  </svg>
+                  Páginas visitadas antes del chat
+                </p>
+                <div className="flex flex-col gap-1">
+                  {pages.map((p, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="text-[10px] text-blue-300 w-4 flex-shrink-0 text-right">{i + 1}</span>
+                      <span className="text-xs text-blue-700 font-mono truncate flex-1" title={p.url}>{p.url}</span>
+                      {p.title && p.title !== p.url && (
+                        <span className="text-[10px] text-blue-400 truncate max-w-[120px]">{p.title}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          } catch { return null; }
+        })()}
+        {messages.filter((m) => !m.body.startsWith("__ic_ctx__")).length === 0 ? (
           <div className="flex-1 flex items-center justify-center">
             <p className="text-sm text-slate-400">Sin mensajes aún</p>
           </div>
         ) : (
-          messages.map((message) => {
+          messages.filter((m) => !m.body.startsWith("__ic_ctx__")).map((message) => {
             const isOperator = message.sender === "operator";
             return (
               <div
