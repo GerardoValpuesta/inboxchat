@@ -69,11 +69,12 @@ export default function AnalyticsPage() {
     setLoading(true);
     fetch(`${SERVER_URL}/api/analytics?range=${r}`, { headers: getAuthHeaders() })
       .then((res) => {
-        if (!res.ok) { router.push("/login"); return null; }
+        if (res.status === 401) { router.push("/login"); return null; }
+        if (!res.ok) return null; // silenciar otros errores HTTP
         return res.json() as Promise<Analytics>;
       })
       .then((data) => { if (data) setAnalytics(data); })
-      .catch(() => router.push("/login"))
+      .catch(() => {/* conexión fallida: silenciar */})
       .finally(() => setLoading(false));
   }, [router]);
 
@@ -200,10 +201,10 @@ export default function AnalyticsPage() {
                     />
                     <div className="flex justify-between mt-3 pt-3 border-t border-slate-100">
                       <span className="text-xs text-slate-400">
-                        {new Date(analytics.byDay[0]!.day).toLocaleDateString("es", { month: "short", day: "numeric" })}
+                        {analytics.byDay[0] ? new Date(analytics.byDay[0].day).toLocaleDateString("es", { month: "short", day: "numeric" }) : ""}
                       </span>
                       <span className="text-xs text-slate-400">
-                        {new Date(analytics.byDay.at(-1)!.day).toLocaleDateString("es", { month: "short", day: "numeric" })}
+                        {analytics.byDay.at(-1) ? new Date(analytics.byDay.at(-1)!.day).toLocaleDateString("es", { month: "short", day: "numeric" }) : ""}
                       </span>
                     </div>
                   </>
