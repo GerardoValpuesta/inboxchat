@@ -635,4 +635,46 @@
 
   // Iniciar triggers después de que el widget esté montado (delay 500ms)
   setTimeout(fetchTriggers, 500);
+
+  // ── Widget Analytics tracking ──────────────────────────────────────────────
+  // Genera o recupera un sessionId persistente por tab (no entre sesiones)
+  var SESSION_ID = (function() {
+    try {
+      var key = "ic_sid_" + WORKSPACE_KEY;
+      var sid = sessionStorage.getItem(key);
+      if (!sid) {
+        sid = Math.random().toString(36).slice(2) + Date.now().toString(36);
+        sessionStorage.setItem(key, sid);
+      }
+      return sid;
+    } catch(_) { return ""; }
+  })();
+
+  function trackEvent(eventType) {
+    try {
+      var xhr = new XMLHttpRequest();
+      xhr.open("POST", SERVER_URL + "/api/widget/track", true);
+      xhr.setRequestHeader("Content-Type", "application/json");
+      xhr.send(JSON.stringify({
+        event: eventType,
+        workspaceKey: WORKSPACE_KEY,
+        sessionId: SESSION_ID,
+        url: window.location.href
+      }));
+    } catch(_) {}
+  }
+
+  // Registrar widget_view al cargar (una sola vez por sesión — el backend deduplica también)
+  setTimeout(function() { trackEvent("widget_view"); }, 1000);
+
+  // Registrar chat_open la primera vez que el usuario abre el widget
+  var chatOpenTracked = false;
+  var _origToggle = toggle;
+  toggle = function() {
+    _origToggle();
+    if (!chatOpenTracked && state.isOpen) {
+      chatOpenTracked = true;
+      trackEvent("chat_open");
+    }
+  };
 })(window);
