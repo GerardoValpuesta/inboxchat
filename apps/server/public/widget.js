@@ -533,4 +533,106 @@
 
   // Exponer API pública
   window.InboxChat.init = init;
+
+  // ─── Proactive Triggers ─────────────────────────────────────────────────────
+  // Carga los triggers del workspace y programa mensajes automáticos.
+  // Un trigger NO se dispara si:
+  //   - El visitante ya tiene una conversación abierta
+  //   - Ya fue disparado en esta sesión (sessionStorage)
+  //   - El widget ya está abierto
+
+  var TRIGGER_FIRED_KEY = "ic_tf_" + WORKSPACE_KEY;
+
+  function triggersAlreadyFired() {
+    try {
+      return JSON.parse(sessionStorage.getItem(TRIGGER_FIRED_KEY) || "{}");
+    } catch(_) { return {}; }
+  }
+
+  function markTriggerFired(pattern) {
+    try {
+      var fired = triggersAlreadyFired();
+      fired[pattern] = Date.now();
+      sessionStorage.setItem(TRIGGER_FIRED_KEY, JSON.stringify(fired));
+    } catch(_) {}
+  }
+
+  function urlMatches(pattern) {
+    var href = window.location.pathname + window.location.search;
+    // Si el patrón termina en * lo tratamos como prefix
+    if (pattern.endsWith("*")) {
+      return href.indexOf(pattern.slice(0, -1)) === 0;
+    }
+    // Si empieza con *, busca el substring en cualquier parte
+    if (pattern.startsWith("*")) {
+      return href.indexOf(pattern.slice(1)) !== -1;
+    }
+    // Literal: la URL debe contener el patrón
+    return href.indexOf(pattern) !== -1;
+  }
+
+  function fireProactiveTrigger(message) {
+    // Abrir el widget si está cerrado
+    if (!state.isOpen) {
+      var btn = document.getElementById("ic-widget-btn");
+      if (btn) btn.click();
+    }
+    // Mostrar el mensaje del operador como si lo hubiera enviado el sistema
+    // Añadirlo directamente a los mensajes del widget sin crear una conv propia
+    var msgContainer = document.getElementById("ic-messages");
+    var emptyEl = document.getElementById("ic-empty");
+    if (!msgContainer) return;
+
+    if (emptyEl) emptyEl.style.display = "none";
+
+    var msgEl = document.createElement("div");
+    msgEl.className = "ic-msg operator";
+    msgEl.innerHTML =
+      "<div>" + message.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;") + "</div>" +
+      "<div class='ic-msg-time'>Ahora</div>";
+    msgContainer.appendChild(msgEl);
+    msgContainer.scrollTop = msgContainer.scrollHeight;
+  }
+
+  function scheduleTriggers(triggers) {
+    if (!triggers || !triggers.length) return;
+    var fired = triggersAlreadyFired();
+
+    triggers.forEach(function(t) {
+      // Salteamos si ya fue disparado en esta sesión
+      if (fired[t.urlPattern]) return;
+      // Salteamos si no matchea la URL actual
+      if (!urlMatches(t.urlPattern)) return;
+
+      var ms = (t.delaySecs || 10) * 1000;
+      setTimeout(function() {
+        // Verificar condiciones al momento de disparar
+        if (state.isOpen) return;           // ya está abierto — no interrumpir
+        if (state.conversationId) return;   // ya tiene conv — no molestar
+        if (triggersAlreadyFired()[t.urlPattern]) return;  // ya fue disparado
+
+        markTriggerFired(t.urlPattern);
+        fireProactiveTrigger(t.message);
+      }, ms);
+    });
+  }
+
+  function fetchTriggers() {
+    try {
+      var xhr = new XMLHttpRequest();
+      xhr.open("GET", SERVER_URL + "/api/widget/triggers?key=" + WORKSPACE_KEY, true);
+      xhr.onload = function() {
+        if (xhr.status === 200) {
+          try {
+            var data = JSON.parse(xhr.responseText);
+            scheduleTriggers(data.triggers || []);
+          } catch(_) {}
+        }
+      };
+      xhr.send();
+    } catch(_) {}
+  }
+
+  // Iniciar triggers después de que el widget esté montado (delay 500ms)
+  setTimeout(fetchTriggers, 500);
 })(window);
