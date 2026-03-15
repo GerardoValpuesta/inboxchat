@@ -25,6 +25,7 @@
   var widgetColor = config.color || "#1e293b";
   var widgetWelcome = config.welcomeMessage || "¡Hola! 👋 ¿En qué podemos ayudarte?";
   var widgetGdprEnabled = config.gdprEnabled || false;
+  var showBranding = false;  // se actualiza desde fetchConfig()
 
   if (!WORKSPACE_KEY) {
     console.error("[InboxChat] workspaceKey es requerido");
@@ -92,6 +93,10 @@
       ".ic-gdpr{display:flex;align-items:flex-start;gap:8px;font-size:11px;color:#64748b;padding:4px 0;cursor:pointer}",
       ".ic-gdpr input[type='checkbox']{margin-top:2px;accent-color:var(--ic-primary,#1e293b);cursor:pointer;flex-shrink:0}",
       "@media(max-width:420px){#ic-panel{width:calc(100vw - 24px);right:12px;bottom:80px;height:480px}}",
+      "#ic-branding{display:none;padding:4px 12px 6px;text-align:center;background:white;border-top:1px solid #f1f5f9}",
+      "#ic-branding a{font-size:10px;color:#94a3b8;text-decoration:none;display:inline-flex;align-items:center;gap:3px;transition:color .15s}",
+      "#ic-branding a:hover{color:#475569}",
+      "#ic-branding a svg{width:10px;height:10px;opacity:.7}",
     ].join("");
     document.head.appendChild(style);
     // Inyectar CSS custom property del color primario
@@ -163,6 +168,13 @@
       '    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>',
       "  </button>",
       "</div>",
+      // PLG branding badge — solo visible en free tier
+      '<div id="ic-branding">',
+      '  <a href="https://inboxchat.app" target="_blank" rel="noopener noreferrer">',
+      '    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z"/></svg>',
+      '    Powered by InboxChat',
+      '  </a>',
+      '</div>',
     ].join("");
 
     document.body.appendChild(btn);
@@ -456,6 +468,12 @@
           }
           if (cfg.welcomeMessage) widgetWelcome = cfg.welcomeMessage;
           if (cfg.gdprEnabled !== undefined) widgetGdprEnabled = cfg.gdprEnabled;
+          if (cfg.showBranding) {
+            showBranding = true;
+            // Mostrar el badge PLG si el DOM ya está creado
+            var brandingEl = document.getElementById("ic-branding");
+            if (brandingEl) brandingEl.style.display = "block";
+          }
         } catch (_) { /* ignorar errores de parseo */ }
       }
       callback();

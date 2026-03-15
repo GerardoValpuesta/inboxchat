@@ -49,6 +49,16 @@ export default function SettingsPage() {
   const [inviting, setInviting] = useState(false);
   const [inviteSent, setInviteSent] = useState("");
 
+  // Canned Responses
+  const [cannedResponses, setCannedResponses] = useState<{ id: string; shortcut: string; body: string }[]>([]);
+  const [newShortcut, setNewShortcut] = useState("");
+  const [newBody, setNewBody] = useState("");
+  const [addingCanned, setAddingCanned] = useState(false);
+  const [cannedError, setCannedError] = useState("");
+  const [editingCannedId, setEditingCannedId] = useState<string | null>(null);
+  const [editShortcut, setEditShortcut] = useState("");
+  const [editBody, setEditBody] = useState("");
+
   useEffect(() => {
     Promise.all([
       fetch(`${SERVER_URL}/api/billing/status`, { headers: getAuthHeaders() as HeadersInit }),
@@ -93,6 +103,12 @@ export default function SettingsPage() {
         if (opsRes.ok) {
           const opsData = await opsRes.json() as { operators: { id: string; name: string; email: string }[] };
           setOperators(opsData.operators ?? []);
+        }
+        // Cargar canned responses
+        const cannedRes = await fetch(`${SERVER_URL}/api/canned-responses`, { headers: getAuthHeaders() as HeadersInit });
+        if (cannedRes.ok) {
+          const cannedData = await cannedRes.json() as { cannedResponses: typeof cannedResponses };
+          setCannedResponses(cannedData.cannedResponses ?? []);
         }
       })
       .catch(() => router.push("/login"))
@@ -162,6 +178,52 @@ export default function SettingsPage() {
       headers: getAuthHeaders() as HeadersInit,
     });
     setOperators((prev) => prev.filter((op) => op.id !== id));
+  }
+
+  async function addCannedResponse(e: React.FormEvent) {
+    e.preventDefault();
+    setCannedError("");
+    setAddingCanned(true);
+    try {
+      const res = await fetch(`${SERVER_URL}/api/canned-responses`, {
+        method: "POST",
+        headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ shortcut: newShortcut, body: newBody }),
+      });
+      const d = await res.json() as { cannedResponse?: { id: string; shortcut: string; body: string }; error?: string };
+      if (res.ok && d.cannedResponse) {
+        setCannedResponses((prev) => [...prev, d.cannedResponse!].sort((a, b) => a.shortcut.localeCompare(b.shortcut)));
+        setNewShortcut("");
+        setNewBody("");
+      } else {
+        setCannedError(d.error ?? "Error al crear");
+      }
+    } finally {
+      setAddingCanned(false);
+    }
+  }
+
+  async function deleteCannedResponse(id: string) {
+    await fetch(`${SERVER_URL}/api/canned-responses/${id}`, {
+      method: "DELETE",
+      headers: getAuthHeaders() as HeadersInit,
+    });
+    setCannedResponses((prev) => prev.filter((c) => c.id !== id));
+  }
+
+  async function saveCannedEdit(id: string) {
+    const res = await fetch(`${SERVER_URL}/api/canned-responses/${id}`, {
+      method: "PUT",
+      headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ shortcut: editShortcut, body: editBody }),
+    });
+    if (res.ok) {
+      setCannedResponses((prev) =>
+        prev.map((c) => c.id === id ? { ...c, shortcut: editShortcut.replace(/^\//, "").trim().toLowerCase(), body: editBody.trim() } : c)
+          .sort((a, b) => a.shortcut.localeCompare(b.shortcut))
+      );
+      setEditingCannedId(null);
+    }
   }
 
   if (loading) {
@@ -261,6 +323,98 @@ export default function SettingsPage() {
                   {inviteSent.startsWith("Error") ? inviteSent : `✓ Invitación enviada a ${inviteSent}`}
                 </p>
               )}
+            </form>
+          </div>
+
+          {/* Canned Responses */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+            <h2 className="text-sm font-semibold text-slate-900 uppercase tracking-wide mb-1">Respuestas rápidas</h2>
+            <p className="text-xs text-slate-500 mb-4">Escribí <kbd className="bg-slate-100 px-1 rounded font-mono">/shortcut</kbd> en el chat para insertar estas respuestas al instante.</p>
+
+            {/* Lista */}
+            <div className="space-y-2 mb-4">
+              {cannedResponses.length === 0 && (
+                <p className="text-xs text-slate-400 text-center py-3">Sin respuestas rápidas. Creá la primera abajo.</p>
+              )}
+              {cannedResponses.map((c) =>
+                editingCannedId === c.id ? (
+                  <div key={c.id} className="flex flex-col gap-2 p-3 rounded-xl border border-violet-300 bg-violet-50">
+                    <div className="flex gap-2">
+                      <div className="relative">
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-mono">/</span>
+                        <input
+                          value={editShortcut}
+                          onChange={(e) => setEditShortcut(e.target.value)}
+                          className="pl-5 pr-2 py-1.5 text-xs rounded-lg border border-slate-200 outline-none focus:border-violet-400 w-28 font-mono"
+                          placeholder="shortcut"
+                        />
+                      </div>
+                      <input
+                        value={editBody}
+                        onChange={(e) => setEditBody(e.target.value)}
+                        className="flex-1 px-2 py-1.5 text-xs rounded-lg border border-slate-200 outline-none focus:border-violet-400"
+                        placeholder="Texto de la respuesta"
+                      />
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <button onClick={() => setEditingCannedId(null)} className="text-xs text-slate-500 px-2 py-1 hover:text-slate-700">Cancelar</button>
+                      <button
+                        onClick={() => void saveCannedEdit(c.id)}
+                        className="text-xs font-semibold bg-violet-600 text-white px-3 py-1 rounded-lg hover:bg-violet-700"
+                      >Guardar</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div key={c.id} className="flex items-center gap-3 py-2 px-3 rounded-xl bg-slate-50 border border-slate-100 group">
+                    <kbd className="text-xs font-mono text-violet-600 bg-violet-50 border border-violet-100 px-1.5 py-0.5 rounded flex-shrink-0">/{c.shortcut}</kbd>
+                    <span className="text-xs text-slate-600 flex-1 truncate">{c.body}</span>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => { setEditingCannedId(c.id); setEditShortcut(c.shortcut); setEditBody(c.body); }}
+                        className="text-xs text-slate-500 hover:text-slate-700 px-2 py-1 rounded-lg hover:bg-slate-100"
+                      >Editar</button>
+                      <button
+                        onClick={() => void deleteCannedResponse(c.id)}
+                        className="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded-lg hover:bg-red-50"
+                      >Borrar</button>
+                    </div>
+                  </div>
+                )
+              )}
+            </div>
+
+            {/* Formulario nueva respuesta */}
+            <form onSubmit={(e) => void addCannedResponse(e)} className="border-t border-slate-100 pt-4">
+              <p className="text-xs font-medium text-slate-600 mb-2">Nueva respuesta rápida</p>
+              <div className="flex gap-2">
+                <div className="relative">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-mono">/</span>
+                  <input
+                    type="text"
+                    value={newShortcut}
+                    onChange={(e) => setNewShortcut(e.target.value)}
+                    placeholder="shortcut"
+                    required
+                    className="pl-5 pr-2 py-2 text-xs rounded-lg border border-slate-200 outline-none focus:border-violet-400 w-28 font-mono"
+                  />
+                </div>
+                <input
+                  type="text"
+                  value={newBody}
+                  onChange={(e) => setNewBody(e.target.value)}
+                  placeholder="Hola! ¿En qué te puedo ayudar?"
+                  required
+                  className="flex-1 px-3 py-2 text-xs rounded-lg border border-slate-200 outline-none focus:border-violet-400"
+                />
+                <button
+                  type="submit"
+                  disabled={addingCanned}
+                  className="px-3 py-2 text-xs font-semibold bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 whitespace-nowrap"
+                >
+                  {addingCanned ? "..." : "+ Agregar"}
+                </button>
+              </div>
+              {cannedError && <p className="text-xs text-red-500 mt-1">{cannedError}</p>}
             </form>
           </div>
 

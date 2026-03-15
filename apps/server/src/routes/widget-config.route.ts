@@ -35,12 +35,20 @@ export async function widgetConfigRoute(
         return reply.status(404).send({ error: "Workspace no encontrado" });
       }
 
+      // showBranding = true si el workspace está en free tier o el trial expiró
+      const isPro = workspace.plan === "pro";
+      const trialActive = workspace.trial_ends_at
+        ? new Date(workspace.trial_ends_at) > new Date()
+        : false;
+      const showBranding = !isPro && !trialActive;
+
       return reply.send({
         title: workspace.widget_title ?? "Soporte",
         color: workspace.widget_color ?? "#1e293b",
         welcomeMessage: workspace.widget_welcome_message ?? "¡Hola! 👋 ¿En qué podemos ayudarte?",
         gdprEnabled: workspace.widget_gdpr_enabled ?? false,
         workspaceName: workspace.name,
+        showBranding,
       });
     }
   );
