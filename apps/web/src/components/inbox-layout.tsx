@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useSocket } from "@/hooks/use-socket";
 import { useInboxStore } from "@/store/inbox.store";
 import { ConversationList } from "@/components/conversation-list";
@@ -8,6 +8,7 @@ import { ChatPanel } from "@/components/chat-panel";
 import { TrialBanner } from "@/components/trial-banner";
 import { OnboardingChecklist } from "@/components/onboarding-checklist";
 import { ContactPanel } from "@/components/contact-panel";
+import { useInboxKeyboard } from "@/hooks/use-inbox-keyboard";
 import type { Conversation, Message } from "@inboxchat/shared";
 
 const SERVER_URL =
@@ -37,6 +38,7 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
   } = useInboxStore();
 
   const [showContactPanel, setShowContactPanel] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Billing + workspace status para el TrialBanner y OnboardingChecklist
   const [billingInfo, setBillingInfo] = useState<{
@@ -119,6 +121,39 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
     setShowContactPanel(false);
   }, [setActiveConversation]);
 
+  // Keyboard shortcuts globales del inbox
+  useInboxKeyboard({
+    onSearch: () => {
+      searchInputRef.current?.focus();
+      searchInputRef.current?.select();
+    },
+    onEscape: () => {
+      if (showContactPanel) {
+        setShowContactPanel(false);
+      } else {
+        setActiveConversation(null);
+      }
+    },
+    onResolve: () => {
+      if (!activeConversationId) return;
+      const token = typeof window !== "undefined" ? localStorage.getItem("ic_token") : null;
+      if (!token) return;
+      void fetch(`${SERVER_URL}/api/conversations/${activeConversationId}/status`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "closed" }),
+      }).then(() => {
+        // Actualizar la lista de conversaciones
+        const loadConversations = () => fetch(`${SERVER_URL}/api/conversations`, {
+          headers: getAuthHeaders(), cache: "no-store",
+        }).then((r) => r.json()).then((data: { conversations: Conversation[] }) => {
+          setConversations(data.conversations ?? []);
+        }).catch(() => {/* silenciar */});
+        void loadConversations();
+      });
+    },
+  });
+
   return (
     <div className="flex flex-col h-[100dvh] overflow-hidden bg-slate-50">
       {/* Trial banner — sticky, full width */}
@@ -142,7 +177,7 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
               apiKey={billingInfo.apiKey}
             />
           )}
-          <ConversationList />
+          <ConversationList searchInputRef={searchInputRef} />
         </div>
 
         {/* Chat panel — columna 2 */}

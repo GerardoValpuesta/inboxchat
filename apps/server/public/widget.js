@@ -261,6 +261,8 @@
             if (result && result.ok && Array.isArray(result.messages) && result.messages.length > 0) {
               // Renderizar historial (los mensajes vienen con created_at del DB)
               result.messages.forEach(function (msg, i) {
+                // Notas internas: privadas, no mostrar al visitante
+                if (msg.sender === "note") return;
                 addMessage({
                   body: msg.body,
                   sender: msg.sender,
@@ -283,6 +285,8 @@
     });
 
     socket.on("message:received", function (data) {
+      // Las notas internas (sender='note') son privadas del equipo — nunca mostrarlas al visitante
+      if (data.message && data.message.sender === "note") return;
       addMessage(data.message);
     });
 

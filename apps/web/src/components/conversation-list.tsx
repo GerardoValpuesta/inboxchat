@@ -75,7 +75,11 @@ function ConversationItem({ conversation, isActive, onClick }: ConversationItemP
  * Muestra la lista de conversaciones ordenadas por última actividad.
  * Se suscribe al store de Zustand para actualizarse en tiempo real.
  */
-export function ConversationList() {
+interface ConversationListProps {
+  searchInputRef?: React.RefObject<HTMLInputElement>;
+}
+
+export function ConversationList({ searchInputRef }: ConversationListProps = {}) {
   const conversations = useInboxStore((s) => s.conversations);
   const activeConversation = useInboxStore(selectActiveConversation);
   const setActiveConversation = useInboxStore((s) => s.setActiveConversation);
@@ -169,11 +173,12 @@ export function ConversationList() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
           <input
+            ref={searchInputRef}
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Escape" && setSearchQuery("")}
-            placeholder="Buscar..."
+            placeholder="Buscar... ⌘K"
             className="w-full pl-7 pr-7 py-1.5 text-xs rounded-lg border border-slate-200 bg-slate-50 text-slate-800 placeholder:text-slate-400 outline-none focus:border-slate-400 transition-colors"
           />
           {isSearching && (
