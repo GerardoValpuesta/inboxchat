@@ -17,14 +17,14 @@ function getAuthHeaders(): HeadersInit {
 }
 
 interface Analytics {
-  range: number;
+  range?: number;
   totals: { open: number; closed: number; total: number };
   byDay: { day: string; count: number }[];
   messages: { operator: number; contact: number };
   avgResponseMinutes: number | null;
-  responseRate: number | null;
-  topOperators: { name: string; email: string; msgCount: number }[];
-  byHour: { hour: number; count: number }[];
+  responseRate?: number | null;   // campo nuevo — puede faltar en backend viejo
+  topOperators?: { name: string; email: string; msgCount: number }[];  // campo nuevo
+  byHour?: { hour: number; count: number }[];  // campo nuevo
 }
 
 function MiniBarChart({ data, color = "bg-violet-500" }: { data: { label: string; count: number }[]; color?: string }) {
@@ -86,15 +86,21 @@ export default function AnalyticsPage() {
     : 0;
 
   // Preparar datos para el gráfico de horas (0-23)
+  // byHour es opcional: el backend viejo no lo incluye
+  const safeByHour = analytics?.byHour ?? [];
   const hourData = Array.from({ length: 24 }, (_, h) => {
-    const found = analytics?.byHour.find((b) => b.hour === h);
+    const found = safeByHour.find((b) => b.hour === h);
     return { label: `${h}h`, count: found?.count ?? 0 };
   });
 
-  const peakHour = analytics?.byHour.reduce(
-    (max, b) => (b.count > max.count ? b : max),
-    { hour: 0, count: 0 }
-  );
+  const peakHour = safeByHour.length > 0
+    ? safeByHour.reduce(
+        (max, b) => (b.count > max.count ? b : max),
+        { hour: 0, count: 0 }
+      )
+    : null;
+
+  const safeTopOperators = analytics?.topOperators ?? [];
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -266,10 +272,10 @@ export default function AnalyticsPage() {
               {/* Top operadores */}
               <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
                 <h2 className="text-sm font-semibold text-slate-900 mb-4">Operadores más activos</h2>
-                {analytics?.topOperators && analytics.topOperators.length > 0 ? (
+                {safeTopOperators.length > 0 ? (
                   <div className="space-y-3">
-                    {analytics.topOperators.map((op, i) => {
-                      const maxMsgs = analytics.topOperators[0]?.msgCount ?? 1;
+                    {safeTopOperators.map((op, i) => {
+                      const maxMsgs = safeTopOperators[0]?.msgCount ?? 1;
                       return (
                         <div key={op.email} className="flex items-center gap-3">
                           <div className="w-6 h-6 rounded-full bg-violet-100 flex items-center justify-center text-[10px] font-bold text-violet-700 flex-shrink-0">
