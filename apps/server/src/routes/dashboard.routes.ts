@@ -48,11 +48,28 @@ export async function dashboardRoutes(
   { db, ioRef }: { db: Database; ioRef: { current: import("socket.io").Server | null } }
 ) {
   // ─── GET /api/conversations ───────────────────────────────────────────────
-  app.get("/api/conversations", async (request, reply) => {
+  app.get<{ Querystring: { tag?: string } }>("/api/conversations", async (request, reply) => {
     const workspaceId = await resolveWorkspaceId(db, request.headers as Record<string, string | undefined>);
 
     if (!workspaceId) {
       return reply.status(401).send({ error: "No autorizado" });
+    }
+
+    const tagId = request.query.tag;
+
+    if (tagId) {
+      // Filtrar conversaciones que tienen este tag asignado
+      const taggedIds = await db<{ conversation_id: string }[]>`
+        SELECT ct.conversation_id
+        FROM conversation_tags ct
+        JOIN tags t ON t.id = ct.tag_id
+        WHERE ct.tag_id = ${tagId}
+          AND t.workspace_id = ${workspaceId}
+      `;
+      if (taggedIds.length === 0) return reply.send({ conversations: [] });
+      const ids = taggedIds.map((r) => r.conversation_id);
+      const conversations = await listOpenConversations(db, workspaceId);
+      return reply.send({ conversations: conversations.filter((c) => ids.includes(c.id)) });
     }
 
     const conversations = await listOpenConversations(db, workspaceId);

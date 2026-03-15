@@ -94,6 +94,10 @@ export function ConversationList({ searchInputRef }: ConversationListProps = {})
   const [searchResults, setSearchResults] = useState<Conversation[] | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Tag filter
+  const [allTags, setAllTags] = useState<{ id: string; name: string; color: string }[]>([]);
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [tagFilteredIds, setTagFilteredIds] = useState<Set<string> | null>(null);
 
   // Leer operatorId del JWT para el filtro "Mías"
   useEffect(() => {
@@ -105,6 +109,25 @@ export function ConversationList({ searchInputRef }: ConversationListProps = {})
       setOperatorName(payload.name ?? "");
     } catch { /* token malformado */ }
   }, []);
+
+  // Cargar tags del workspace para el filtro
+  useEffect(() => {
+    fetch(`${SERVER_URL}/api/tags`, { headers: getAuthHeaders() })
+      .then((r) => r.json())
+      .then((d: { tags: typeof allTags }) => setAllTags(d.tags ?? []))
+      .catch(() => {});
+  }, []);
+
+  // Cuando cambia tagFilter, cargar los IDs de conversaciones con ese tag
+  useEffect(() => {
+    if (!tagFilter) { setTagFilteredIds(null); return; }
+    fetch(`${SERVER_URL}/api/conversations?tag=${tagFilter}`, { headers: getAuthHeaders() })
+      .then((r) => r.json())
+      .then((d: { conversations: { id: string }[] }) =>
+        setTagFilteredIds(new Set((d.conversations ?? []).map((c) => c.id)))
+      )
+      .catch(() => setTagFilteredIds(new Set()));
+  }, [tagFilter]);
 
   const SERVER_URL = process.env["NEXT_PUBLIC_SERVER_URL"] ?? "http://localhost:3001";
 
@@ -155,8 +178,10 @@ export function ConversationList({ searchInputRef }: ConversationListProps = {})
         .filter((c) => {
           if (assignFilter === "mine") return c.assignedTo === currentOperatorId;
           if (assignFilter === "unassigned") return !c.assignedTo;
-          return true; // "all"
-        });
+          return true;
+        })
+        .filter((c) => tagFilteredIds ? tagFilteredIds.has(c.id) : true);
+
 
   return (
     <aside className="w-72 flex-shrink-0 bg-white border-r border-slate-200 flex flex-col h-full">
@@ -169,6 +194,26 @@ export function ConversationList({ searchInputRef }: ConversationListProps = {})
             <span className="text-xs text-slate-500">{isConnected ? "online" : "offline"}</span>
           </div>
         </div>
+        {/* Chips de tags — filtro opcional */}
+        {!searchQuery && allTags.length > 0 && (
+          <div className="flex gap-1 mt-1.5 flex-wrap">
+            {allTags.map((tag) => (
+              <button
+                key={tag.id}
+                onClick={() => setTagFilter((prev) => prev === tag.id ? null : tag.id)}
+                className="text-[10px] font-semibold px-2 py-0.5 rounded-full transition-all"
+                style={{
+                  backgroundColor: tagFilter === tag.id ? tag.color : tag.color + "18",
+                  color: tagFilter === tag.id ? "#fff" : tag.color,
+                  border: `1px solid ${tag.color}44`,
+                }}
+              >
+                {tag.name}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Search bar */}
         <div className="relative mb-3">
           <svg className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
