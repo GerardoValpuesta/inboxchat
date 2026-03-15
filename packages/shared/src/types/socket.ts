@@ -59,6 +59,8 @@ export interface ServerToClientEvents {
   "conversation:new": (payload: ConversationNewPayload) => void;
   "message:new": (payload: MessageNewPayload) => void;
   "conversation:updated": (payload: ConversationUpdatedPayload) => void;
+  // Widget y Dashboard reciben este cuando el operador resuelve la conversación
+  "conversation:closed": (payload: { conversationId: string }) => void;
 }
 
 /** Eventos que los CLIENTES emiten (escuchados por el server) */

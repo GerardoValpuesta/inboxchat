@@ -100,7 +100,10 @@ async function bootstrap() {
   // 5. Health check — requerido por Railway para saber si el proceso está vivo
   app.get("/health", async () => ({ status: "ok", timestamp: new Date().toISOString() }));
 
-  // 6. Rutas REST: auth (login/register) + dashboard (conversaciones)
+  // 6. Rutas REST
+  // ioRef permite pasar io a dashboardRoutes antes de que exista la instancia.
+  // Los handlers se ejecutan en tiempo de request, cuando io ya está inicializado.
+  const ioRef: { current: import("socket.io").Server | null } = { current: null };
   const { authRoutes } = await import("./routes/auth.routes.js");
   const { dashboardRoutes } = await import("./routes/dashboard.routes.js");
   const { billingRoutes } = await import("./routes/billing.routes.js");
@@ -116,7 +119,7 @@ async function bootstrap() {
   await app.register(authRoutes, { db });
   await app.register(signupRoute, { db });
   await app.register(passwordResetRoutes, { db });
-  await app.register(dashboardRoutes, { db });
+  await app.register(dashboardRoutes, { db, ioRef });
   await app.register(billingRoutes, { db });
   await app.register(workspaceRoutes, { db });
   await app.register(widgetConfigRoute, { db });
@@ -150,6 +153,9 @@ async function bootstrap() {
 
   // 8. Registrar todos los handlers de Socket.io
   registerSocketHandlers(io, db);
+
+  // Completar la referencia lazy para que dashboardRoutes pueda emitir eventos
+  ioRef.current = io;
 
   // 9. Graceful shutdown
   const shutdown = async (signal: string) => {

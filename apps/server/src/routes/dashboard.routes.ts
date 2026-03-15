@@ -45,7 +45,7 @@ async function resolveWorkspaceId(
 
 export async function dashboardRoutes(
   app: FastifyInstance,
-  { db }: { db: Database }
+  { db, ioRef }: { db: Database; ioRef: { current: import("socket.io").Server | null } }
 ) {
   // ─── GET /api/conversations ───────────────────────────────────────────────
   app.get("/api/conversations", async (request, reply) => {
@@ -103,12 +103,34 @@ export async function dashboardRoutes(
         return reply.status(404).send({ error: "Conversación no encontrada" });
       }
 
+      if (conversation.status === "closed") {
+        return reply.status(400).send({ error: "La conversación ya está cerrada" });
+      }
+
       await db`
         UPDATE conversations
         SET status = 'closed', updated_at = NOW()
         WHERE id = ${request.params.id}
           AND workspace_id = ${workspaceId}
       `;
+
+      const conversationId = request.params.id;
+      const now = new Date().toISOString();
+
+      // Notificar a todos los operadores del workspace (sidebar se actualiza en tiempo real)
+      ioRef.current?.to(`workspace:${workspaceId}`).emit("conversation:updated", {
+        conversation: {
+          id: conversationId,
+          status: "closed",
+          unreadCount: conversation.unreadCount,
+          updatedAt: now as unknown as Date,
+        },
+      });
+
+      // Notificar al widget (sala de la conversación) que fue cerrada
+      ioRef.current?.to(`conversation:${conversationId}`).emit("conversation:closed", {
+        conversationId,
+      });
 
       return { ok: true };
     }

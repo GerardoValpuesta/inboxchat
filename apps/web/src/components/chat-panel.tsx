@@ -231,49 +231,63 @@ export function ChatPanel({ socketRef }: ChatPanelProps) {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input del operador */}
-      <div className="px-6 py-4 border-t border-slate-200 flex-shrink-0">
-        <div className="flex items-end gap-3 bg-slate-50 rounded-xl border border-slate-200 px-4 py-3 focus-within:border-slate-400 transition-colors">
-          <textarea
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Escribí un mensaje... (Enter para enviar)"
-            rows={1}
-            disabled={isSending}
-            className="flex-1 bg-transparent text-sm text-slate-800 placeholder:text-slate-400 resize-none outline-none max-h-32 leading-relaxed disabled:opacity-50"
-            style={{ minHeight: "24px" }}
-          />
-          <button
-            type="button"
-            onClick={() => void handleSend()}
-            disabled={!inputValue.trim() || isSending}
-            className={cn(
-              "flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all",
-              inputValue.trim() && !isSending
-                ? "bg-slate-800 text-white hover:bg-slate-700 active:scale-95"
-                : "bg-slate-200 text-slate-400 cursor-not-allowed"
-            )}
-            aria-label="Enviar mensaje"
-          >
-            {isSending ? (
-              <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-            ) : (
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-              </svg>
-            )}
-          </button>
+      {/* Input del operador — solo si la conversación está abierta */}
+      {activeConversation.status === "closed" ? (
+        <div className="px-6 py-4 border-t border-slate-200 flex-shrink-0">
+          <div className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-slate-50 border border-slate-200">
+            <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-sm text-slate-500">
+              Conversación resuelta — no se pueden enviar más mensajes
+            </p>
+          </div>
         </div>
-        <p className="text-xs text-slate-400 mt-2">
-          Enter para enviar · Shift+Enter para nueva línea
-        </p>
-      </div>
+      ) : (
+        <div className="px-6 py-4 border-t border-slate-200 flex-shrink-0">
+          <div className="flex items-end gap-3 bg-slate-50 rounded-xl border border-slate-200 px-4 py-3 focus-within:border-slate-400 transition-colors">
+            <textarea
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Escribí un mensaje... (Enter para enviar)"
+              rows={1}
+              disabled={isSending}
+              className="flex-1 bg-transparent text-sm text-slate-800 placeholder:text-slate-400 resize-none outline-none max-h-32 leading-relaxed disabled:opacity-50"
+              style={{ minHeight: "24px" }}
+            />
+            <button
+              type="button"
+              onClick={() => void handleSend()}
+              disabled={!inputValue.trim() || isSending}
+              className={cn(
+                "flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all",
+                inputValue.trim() && !isSending
+                  ? "bg-slate-800 text-white hover:bg-slate-700 active:scale-95"
+                  : "bg-slate-200 text-slate-400 cursor-not-allowed"
+              )}
+              aria-label="Enviar mensaje"
+            >
+              {isSending ? (
+                <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+              )}
+            </button>
+          </div>
+          <p className="text-xs text-slate-400 mt-2">
+            Enter para enviar · Shift+Enter para nueva línea
+          </p>
+        </div>
+      )}
     </main>
   );
 }

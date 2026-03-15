@@ -109,6 +109,21 @@ export function useSocket(workspaceId: string) {
       }
     });
 
+    // Otro operador resolvió una conversación — actualizar el store en tiempo real
+    socket.on("conversation:updated", ({ conversation }) => {
+      updateConversation(conversation.id, {
+        status: conversation.status,
+        unreadCount: conversation.unreadCount,
+        updatedAt: conversation.updatedAt,
+      });
+    });
+
+    // El widget recibe este evento, pero el dashboard también puede escucharlo
+    // para desactivar el input si el operador tiene la conversación abierta en otra pestaña
+    socket.on("conversation:closed", ({ conversationId }) => {
+      updateConversation(conversationId, { status: "closed" });
+    });
+
     // ─── Cleanup ──────────────────────────────────────────────────────────
     return () => {
       socket.off("connect");
@@ -116,6 +131,8 @@ export function useSocket(workspaceId: string) {
       socket.off("conversation:new");
       socket.off("message:new");
       socket.off("message:received");
+      socket.off("conversation:updated");
+      socket.off("conversation:closed");
       socket.disconnect();
       socketRef.current = null;
       setConnected(false);
