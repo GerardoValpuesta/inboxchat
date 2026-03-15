@@ -8,6 +8,7 @@ import { ChatPanel } from "@/components/chat-panel";
 import { TrialBanner } from "@/components/trial-banner";
 import { OnboardingChecklist } from "@/components/onboarding-checklist";
 import { ContactPanel } from "@/components/contact-panel";
+import { GlobalSearch } from "@/components/global-search";
 import { useInboxKeyboard } from "@/hooks/use-inbox-keyboard";
 import type { Conversation, Message } from "@inboxchat/shared";
 
@@ -38,8 +39,21 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
   } = useInboxStore();
 
   const [showContactPanel, setShowContactPanel] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const slaNotifiedRef = useRef<Set<string>>(new Set()); // convIds ya notificadas en esta sesión
+
+  // Cmd+K / Ctrl+K — abrir búsqueda global
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setShowSearch((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   // Billing + workspace status para el TrialBanner y OnboardingChecklist
   const [billingInfo, setBillingInfo] = useState<{
@@ -187,6 +201,7 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
   });
 
   return (
+    <>
     <div className="flex flex-col h-[100dvh] overflow-hidden bg-slate-50">
       {/* Trial banner — sticky, full width */}
       {billingInfo && (
@@ -242,5 +257,8 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
         )}
       </div>
     </div>
+
+    <GlobalSearch open={showSearch} onClose={() => setShowSearch(false)} />
+    </>
   );
 }

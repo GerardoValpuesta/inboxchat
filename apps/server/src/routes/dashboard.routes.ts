@@ -96,10 +96,16 @@ export async function dashboardRoutes(
         contact_id: string;
         contact_name: string | null;
         contact_email: string | null;
+        snippet: string | null;
       }[]>`
         SELECT DISTINCT ON (c.id)
           c.id, c.status, c.updated_at, c.unread_count, c.assigned_to,
-          co.id AS contact_id, co.name AS contact_name, co.email AS contact_email
+          co.id AS contact_id, co.name AS contact_name, co.email AS contact_email,
+          (
+            SELECT m.body FROM messages m
+            WHERE m.conversation_id = c.id AND m.sender != 'note'
+            ORDER BY m.created_at DESC LIMIT 1
+          ) AS snippet
         FROM conversations c
         JOIN contacts co ON co.id = c.contact_id
         WHERE c.workspace_id = ${workspaceId}
@@ -118,22 +124,11 @@ export async function dashboardRoutes(
 
       const conversations = results.map((r) => ({
         id: r.id,
-        workspaceId,
         status: r.status,
         updatedAt: r.updated_at,
-        unreadCount: r.unread_count,
-        assignedTo: r.assigned_to,
-        lastMessage: null,
-        createdAt: r.updated_at,
-        contact: {
-          id: r.contact_id,
-          workspaceId,
-          name: r.contact_name,
-          email: r.contact_email,
-          externalId: null,
-          lastSeenAt: r.updated_at,
-          createdAt: r.updated_at,
-        },
+        contactName: r.contact_name,
+        contactEmail: r.contact_email,
+        snippet: r.snippet ? r.snippet.slice(0, 80) : null,
       }));
 
       return reply.send({ conversations });
