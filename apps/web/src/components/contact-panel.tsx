@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { cn, getInitials, timeAgo, truncate } from "@/lib/utils";
+import { ConvTagsPanel } from "@/components/conv-tags-panel";
 
 const SERVER_URL =
   process.env["NEXT_PUBLIC_SERVER_URL"] ?? "http://localhost:3001";
@@ -32,11 +33,12 @@ interface PrevConversation {
 interface Props {
   contactId: string;
   contactName: string;
+  conversationId: string;
   onClose: () => void;
   onSelectConversation: (convId: string) => void;
 }
 
-export function ContactPanel({ contactId, contactName, onClose, onSelectConversation }: Props) {
+export function ContactPanel({ contactId, contactName, conversationId, onClose, onSelectConversation }: Props) {
   const [contact, setContact] = useState<ContactData | null>(null);
   const [conversations, setConversations] = useState<PrevConversation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -126,6 +128,9 @@ export function ContactPanel({ contactId, contactName, onClose, onSelectConversa
                 </div>
               </div>
             </div>
+
+            {/* Tags de la conversación actual */}
+            <ConvTagsPanel conversationId={conversationId} />
 
             {/* Historial de conversaciones */}
             <div className="px-4 py-3">

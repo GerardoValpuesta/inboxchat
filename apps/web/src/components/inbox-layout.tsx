@@ -235,6 +235,7 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
               activeConversation.contact.email ??
               "Visitante"
             }
+            conversationId={activeConversationId!}
             onClose={() => setShowContactPanel(false)}
             onSelectConversation={handleSelectFromHistory}
           />
