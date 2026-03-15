@@ -39,6 +39,7 @@ export function ChatPanel({ socketRef, typingMapRef }: ChatPanelProps) {
   const [inputValue, setInputValue] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+  const [isNoteMode, setIsNoteMode] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   // Debounce ref para el typing:stop (1.5s sin escribir = stop)
   const typingStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -100,14 +101,13 @@ export function ChatPanel({ socketRef, typingMapRef }: ChatPanelProps) {
 
     socket.emit(
       "message:send",
-      { conversationId: activeConversation.id, body },
+      { conversationId: activeConversation.id, body, ...(isNoteMode && { isNote: true }) },
       (result) => {
         setIsSending(false);
         if (result.ok) {
-          // Agregar el mensaje al store inmediatamente para real-time feedback
           addMessage(result.message);
+          setIsNoteMode(false);
         } else {
-          // Restaurar el texto si falla el envío
           setInputValue(body);
           console.error("[chat] error al enviar:", result.error);
         }
@@ -310,11 +310,13 @@ export function ChatPanel({ socketRef, typingMapRef }: ChatPanelProps) {
                 key={message.id}
                 className={cn(
                   "flex items-end gap-2 max-w-[70%]",
-                  isOperator ? "ml-auto flex-row-reverse" : "mr-auto"
+                  message.sender === "operator" || message.sender === "note"
+                    ? "ml-auto flex-row-reverse"
+                    : "mr-auto"
                 )}
               >
                 {/* Avatar del remitente */}
-                {!isOperator && (
+                {message.sender === "contact" && (
                   <div className="w-6 h-6 rounded-full bg-slate-200 flex-shrink-0 flex items-center justify-center text-xs text-slate-600">
                     {getInitials(displayName)}
                   </div>
@@ -323,16 +325,27 @@ export function ChatPanel({ socketRef, typingMapRef }: ChatPanelProps) {
                 <div
                   className={cn(
                     "px-3.5 py-2 rounded-2xl text-sm leading-relaxed break-words",
-                    isOperator
-                      ? "bg-slate-800 text-white rounded-br-sm"
-                      : "bg-slate-100 text-slate-800 rounded-bl-sm"
+                    message.sender === "note"
+                      ? "bg-amber-50 border border-amber-200 text-amber-900 rounded-br-sm"
+                      : message.sender === "operator"
+                        ? "bg-slate-800 text-white rounded-br-sm"
+                        : "bg-slate-100 text-slate-800 rounded-bl-sm"
                   )}
                 >
+                  {message.sender === "note" && (
+                    <span className="flex items-center gap-1 text-[10px] font-semibold text-amber-600 mb-1 uppercase tracking-wide">
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                          d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                      Nota interna
+                    </span>
+                  )}
                   <p>{message.body}</p>
                   <p
                     className={cn(
                       "text-xs mt-1",
-                      isOperator ? "text-slate-400" : "text-slate-500"
+                      message.sender === "note" ? "text-amber-500" : message.sender === "operator" ? "text-slate-400" : "text-slate-500"
                     )}
                   >
                     {timeAgo(message.createdAt)}
@@ -397,15 +410,41 @@ export function ChatPanel({ socketRef, typingMapRef }: ChatPanelProps) {
         </div>
       ) : (
         <div className="px-6 py-4 border-t border-slate-200 flex-shrink-0">
-          <div className="flex items-end gap-3 bg-slate-50 rounded-xl border border-slate-200 px-4 py-3 focus-within:border-slate-400 transition-colors">
+          {/* Toggle Nota interna */}
+          <div className="flex items-center justify-between mb-2">
+            <button
+              type="button"
+              onClick={() => setIsNoteMode((v) => !v)}
+              className={cn(
+                "flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg border transition-colors",
+                isNoteMode
+                  ? "bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100"
+                  : "border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300"
+              )}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              {isNoteMode ? "Nota interna (privada)" : "Nota interna"}
+            </button>
+            <p className="text-xs text-slate-400">Enter para enviar · Shift+Enter nueva línea</p>
+          </div>
+          <div className={cn(
+            "flex items-end gap-3 rounded-xl border px-4 py-3 focus-within:border-slate-400 transition-colors",
+            isNoteMode ? "bg-amber-50 border-amber-200" : "bg-slate-50 border-slate-200"
+          )}>
             <textarea
               value={inputValue}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
-              placeholder="Escribí un mensaje... (Enter para enviar)"
+              placeholder={isNoteMode ? "Escribí una nota interna (solo el equipo la ve)..." : "Escribí un mensaje... (Enter para enviar)"}
               rows={1}
               disabled={isSending}
-              className="flex-1 bg-transparent text-sm text-slate-800 placeholder:text-slate-400 resize-none outline-none max-h-32 leading-relaxed disabled:opacity-50"
+              className={cn(
+                "flex-1 bg-transparent text-sm placeholder:text-slate-400 resize-none outline-none max-h-32 leading-relaxed disabled:opacity-50",
+                isNoteMode ? "text-amber-900" : "text-slate-800"
+              )}
               style={{ minHeight: "24px" }}
             />
             <button
@@ -415,7 +454,9 @@ export function ChatPanel({ socketRef, typingMapRef }: ChatPanelProps) {
               className={cn(
                 "flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all",
                 inputValue.trim() && !isSending
-                  ? "bg-slate-800 text-white hover:bg-slate-700 active:scale-95"
+                  ? isNoteMode
+                    ? "bg-amber-500 text-white hover:bg-amber-600 active:scale-95"
+                    : "bg-slate-800 text-white hover:bg-slate-700 active:scale-95"
                   : "bg-slate-200 text-slate-400 cursor-not-allowed"
               )}
               aria-label="Enviar mensaje"
@@ -434,9 +475,6 @@ export function ChatPanel({ socketRef, typingMapRef }: ChatPanelProps) {
               )}
             </button>
           </div>
-          <p className="text-xs text-slate-400 mt-2">
-            Enter para enviar · Shift+Enter para nueva línea
-          </p>
         </div>
       )}
     </main>

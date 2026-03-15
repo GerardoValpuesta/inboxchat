@@ -141,6 +141,7 @@ export function registerSocketHandlers(io: AppServer, db: Database) {
           socket.data.conversationId = conversationId;
           socket.data.workspaceId = row.workspace_id;
 
+
           // Cargar historial de los últimos 50 mensajes
           const messages = await getConversationHistory(db, conversationId, 50);
           callback?.({ ok: true, messages });
@@ -154,41 +155,39 @@ export function registerSocketHandlers(io: AppServer, db: Database) {
     // ─── message:send ─────────────────────────────────────────────────────
     socket.on("message:send", async (payload, callback) => {
       try {
-        // El operador manda conversationId en el payload.
-        // El widget no lo manda (usa socket.data setado en conversation:start).
         const conversationId = payload.conversationId || socket.data.conversationId;
         if (!conversationId) {
           callback({ ok: false, error: "No hay conversación activa" });
           return;
         }
 
-        // Al operar, unirse a la sala de la conversación si no está ya
-        // (permite recibir mensajes en tiempo real de esa conversación)
         if (socket.data.isOperator) {
           await socket.join(`conversation:${conversationId}`);
           socket.data.conversationId = conversationId;
         }
 
-        // Validación básica del mensaje
         const body = payload.body.trim();
         if (!body || body.length > 5000) {
           callback({ ok: false, error: "Mensaje inválido" });
           return;
         }
 
-        // 1. Determinar quién envía según si es el operador o el contacto
+        // 1. Determinar sender. Las notas internas solo las puede crear el operador.
         const isOperator = socket.data.isOperator === true;
-        const sender = isOperator ? ("operator" as const) : ("contact" as const);
+        const isNote = isOperator && (payload as { isNote?: boolean }).isNote === true;
+        const sender: import("@inboxchat/shared").ContactRole = isNote
+          ? "note"
+          : isOperator
+            ? "operator"
+            : "contact";
 
         // 2. Persistir
         const message = await saveMessage(db, conversationId, body, sender);
 
-        // 3. Si el mensaje es del contacto, incrementar unread del operador
+        // 3. Solo mensajes del contacto incrementan unread y disparan email
         if (sender === "contact") {
           await incrementUnreadCount(db, conversationId);
 
-          // Notificación por email: SOLO si no hay operadores online en el workspace
-          // Si workspace:{id} tiene sockets -> el operador está viendo el inbox en tiempo real
           try {
             const workspaceId = socket.data.workspaceId;
             if (workspaceId && process.env["RESEND_API_KEY"]) {
@@ -196,12 +195,10 @@ export function registerSocketHandlers(io: AppServer, db: Database) {
               const operatorOnline = operatorRoom && operatorRoom.size > 0;
 
               if (!operatorOnline) {
-                // Ningún operador conectado al inbox → mandar email
                 const [ws] = await db<{ owner_email: string; name: string }[]>`
                   SELECT owner_email, name FROM workspaces WHERE id = ${workspaceId} LIMIT 1
                 `;
                 if (ws?.owner_email) {
-                  // Buscar nombre del contacto para el email
                   const [conv] = await db<{ contact_name: string | null }[]>`
                     SELECT c.name AS contact_name
                     FROM conversations cv
@@ -225,14 +222,14 @@ export function registerSocketHandlers(io: AppServer, db: Database) {
           }
         }
 
-        // 4. Emitir al resto de la sala (excluye al sender)
+        // 4. Emitir al resto de la sala
+        //    Notas: solo a operadores — el widget no ve sender="note"
         socket.to(`conversation:${conversationId}`).emit("message:received", { message });
 
-        // 5. Responder al cliente ANTES de la notificación del workspace
-        //    (evita que errores en getConversationWithContact lleguen al callback)
+        // 5. Callback al cliente
         callback({ ok: true, message });
 
-        // 6. Notificación del workspace (best-effort — no afecta el callback)
+        // 6. Notificación del workspace (best-effort)
         try {
           const workspaceId = socket.data.workspaceId;
           if (workspaceId) {
@@ -250,6 +247,7 @@ export function registerSocketHandlers(io: AppServer, db: Database) {
         callback({ ok: false, error: "Error interno del servidor" });
       }
     });
+
 
     // ─── operator:join ────────────────────────────────────────────────────
     // El dashboard del operador se une a la sala del workspace para recibir

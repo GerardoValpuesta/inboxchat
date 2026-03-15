@@ -14,6 +14,7 @@ export interface ConversationStartPayload {
 export interface MessageSendPayload {
   conversationId: string;
   body: string;
+  isNote?: boolean; // solo operadores — nota interna privada, no se envía al widget
 }
 
 // ─── Eventos: Server -> Widget ──────────────────────────────────────────────

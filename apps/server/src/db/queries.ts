@@ -152,7 +152,7 @@ export async function saveMessage(
   db: Database,
   conversationId: string,
   body: string,
-  sender: "contact" | "operator"
+  sender: "contact" | "operator" | "note"
 ): Promise<Message> {
   const [message] = await db`
     INSERT INTO messages (conversation_id, body, sender)
