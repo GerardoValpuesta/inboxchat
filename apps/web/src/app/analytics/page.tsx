@@ -31,6 +31,12 @@ interface WidgetStats {
   summary: { views: number; opens: number; openRate: number };
 }
 
+interface CsatStats {
+  total: number;
+  avg: number | null;
+  distribution: Record<string, number>;
+}
+
 function MiniBarChart({ data, color = "bg-violet-500" }: { data: { label: string; count: number }[]; color?: string }) {
   const max = Math.max(...data.map((d) => d.count), 1);
   return (
@@ -67,6 +73,7 @@ export default function AnalyticsPage() {
   const router = useRouter();
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [widgetStats, setWidgetStats] = useState<WidgetStats | null>(null);
+  const [csatStats, setCsatStats] = useState<CsatStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState<7 | 14 | 30>(14);
 
@@ -75,8 +82,9 @@ export default function AnalyticsPage() {
     Promise.all([
       fetch(`${SERVER_URL}/api/analytics?range=${r}`, { headers: getAuthHeaders() }),
       fetch(`${SERVER_URL}/api/analytics/widget?days=${r}`, { headers: getAuthHeaders() }),
+      fetch(`${SERVER_URL}/api/csat/summary`, { headers: getAuthHeaders() }),
     ])
-      .then(async ([analyticsRes, widgetRes]) => {
+      .then(async ([analyticsRes, widgetRes, csatRes]) => {
         if (analyticsRes.status === 401) { router.push("/login"); return; }
         if (analyticsRes.ok) {
           const data = await analyticsRes.json() as Analytics;
@@ -85,6 +93,10 @@ export default function AnalyticsPage() {
         if (widgetRes.ok) {
           const wdata = await widgetRes.json() as WidgetStats;
           setWidgetStats(wdata);
+        }
+        if (csatRes.ok) {
+          const cdata = await csatRes.json() as CsatStats;
+          setCsatStats(cdata);
         }
       })
       .catch(() => {})
@@ -206,6 +218,47 @@ export default function AnalyticsPage() {
             </div>
 
             {/* Widget Analytics — segunda fila */}
+            {/* CSAT Summary */}
+            {csatStats && csatStats.total > 0 && (
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-sm font-semibold text-slate-900">CSAT · Satisfacción del cliente</h2>
+                    <p className="text-xs text-slate-500 mt-0.5">{csatStats.total} calificacion{csatStats.total !== 1 ? "es" : ""} recibidas</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-3xl font-bold text-violet-600">
+                      {csatStats.avg !== null ? csatStats.avg.toFixed(1) : "—"}
+                    </p>
+                    <p className="text-[10px] text-slate-400">promedio / 5</p>
+                  </div>
+                </div>
+                {/* Barra de distribución por estrella */}
+                <div className="space-y-1.5">
+                  {[5,4,3,2,1].map((n) => {
+                    const emojis: Record<number,string> = {5:"🤩",4:"😊",3:"😐",2:"😞",1:"😞"};
+                    const cnt = csatStats.distribution[String(n)] ?? 0;
+                    const pct = csatStats.total > 0 ? Math.round((cnt / csatStats.total) * 100) : 0;
+                    return (
+                      <div key={n} className="flex items-center gap-2">
+                        <span className="text-sm w-5 flex-shrink-0">{emojis[n]}</span>
+                        <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${
+                              n >= 4 ? "bg-emerald-400" : n === 3 ? "bg-amber-400" : "bg-red-400"
+                            }`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <span className="text-[10px] text-slate-500 w-12 text-right flex-shrink-0">{cnt} · {pct}%</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Widget Analytics */}
             <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-2 h-2 rounded-full bg-blue-400" />
