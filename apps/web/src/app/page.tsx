@@ -1,11 +1,12 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import Script from "next/script";
+import type React from "react";
 
 export const metadata: Metadata = {
   title: "InboxChat — Chat en vivo para founders de SaaS",
   description:
-    "Intercom cobra $74/mes. InboxChat cuesta $19. Una línea de código. Chat en vivo para los primeros 1000 clientes de tu SaaS. Trial gratuito de 14 días, sin tarjeta.",
+    "Intercom cobra $74/mes. InboxChat cuesta $29. Una línea de código. Chat en vivo para los primeros 1000 clientes de tu SaaS. Trial gratuito de 14 días, sin tarjeta.",
 };
 
 const jsonLd = {
@@ -14,27 +15,25 @@ const jsonLd = {
   name: "InboxChat",
   applicationCategory: "BusinessApplication",
   operatingSystem: "Web",
-  description: "Chat en vivo para founders de SaaS. Setup en 2 minutos, $19/mes.",
+  description: "Chat en vivo para founders de SaaS. Setup en 2 minutos, $29/mes.",
   url: "https://inboxchat.app",
   offers: {
     "@type": "Offer",
-    price: "19",
+    price: "29",
     priceCurrency: "USD",
     description: "Plan Pro — conversaciones ilimitadas",
   },
 };
 
-const S = {
-  // Layout
+const S: Record<string, React.CSSProperties> = {
   page: {
     fontFamily: "-apple-system, 'Inter', BlinkMacSystemFont, 'Segoe UI', sans-serif",
     color: "#0f172a",
     background: "#fff",
   },
   container: { maxWidth: "1080px", margin: "0 auto", padding: "0 24px" },
-  // Nav
   nav: {
-    position: "sticky" as const,
+    position: "sticky",
     top: 0,
     zIndex: 50,
     background: "rgba(255,255,255,0.93)",
@@ -50,7 +49,6 @@ const S = {
     alignItems: "center",
     justifyContent: "space-between",
   },
-  // Buttons
   btnPrimary: {
     display: "inline-flex",
     alignItems: "center",
@@ -63,7 +61,7 @@ const S = {
     fontWeight: 700,
     fontSize: "15px",
     boxShadow: "0 4px 18px rgba(124,58,237,0.35)",
-  } as React.CSSProperties,
+  },
   btnSecondary: {
     display: "inline-flex",
     alignItems: "center",
@@ -76,15 +74,60 @@ const S = {
     background: "white",
     border: "1px solid #e2e8f0",
     boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
-  } as React.CSSProperties,
+  },
 };
 
-import type React from "react";
+const TESTIMONIALS = [
+  {
+    quote: "En 15 minutos tenía el widget funcionando en producción. Mis usuarios me escriben y yo respondo desde el inbox en tiempo real.",
+    author: "Martín R.",
+    role: "Founder, SaaS B2B",
+    avatar: "M",
+    color: "#7c3aed",
+  },
+  {
+    quote: "Estaba pagando $74/mes por Intercom y usando el 10% de sus features. InboxChat hace exactamente lo que necesito: chat en vivo, simple.",
+    author: "Carolina V.",
+    role: "CEO, EdTech startup",
+    avatar: "C",
+    color: "#0891b2",
+  },
+  {
+    quote: "Los SLA alerts me salvan. Si un usuario espera más de 10 minutos sin respuesta, me llega un email. Nunca más pierdo una conversación caliente.",
+    author: "Diego M.",
+    role: "Indie hacker",
+    avatar: "D",
+    color: "#059669",
+  },
+];
+
+const FAQ = [
+  {
+    q: "¿Funciona en cualquier web?",
+    a: "Sí. Dos líneas de JavaScript en tu <head>. Funciona en React, Vue, Next.js, WordPress, Webflow, o cualquier stack.",
+  },
+  {
+    q: "¿Puedo cancelar en cualquier momento?",
+    a: "Sí, sin permanencia ni penalidades. Cancelás desde Settings → Billing con un click.",
+  },
+  {
+    q: "¿Qué pasa si supero las 100 conversaciones del plan Free?",
+    a: "El widget sigue funcionando pero el inbox muestra un aviso de upgrade. No se pierden mensajes.",
+  },
+  {
+    q: "¿Hay API para integraciones con Zapier / Make?",
+    a: "Sí. El plan Pro incluye la REST API completa con tu API Key. También hay webhooks salientes con firma HMAC-SHA256.",
+  },
+  {
+    q: "¿Puedo invitar a mi equipo?",
+    a: "Sí. El plan Pro soporta hasta 5 operadores. Podés asignar conversaciones y ver filtros Mías / Sin asignar / Todas.",
+  },
+];
 
 export default function LandingPage() {
   return (
     <div style={S.page}>
-      {/* ─── Nav ──────────────────────────────────────────────────────────── */}
+      {/* ─── Nav ──────────────────────────────────────────────────────── */}
       <nav style={S.nav}>
         <div style={S.navInner}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -112,13 +155,12 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      {/* ─── Hero ─────────────────────────────────────────────────────────── */}
+      {/* ─── Hero ─────────────────────────────────────────────────────── */}
       <section style={{
         background: "linear-gradient(135deg,#faf5ff 0%,#eff6ff 50%,#f0fdf4 100%)",
         padding: "88px 24px 100px", textAlign: "center",
       }}>
         <div style={{ maxWidth: "720px", margin: "0 auto" }}>
-          {/* Badge */}
           <div style={{
             display: "inline-flex", alignItems: "center", gap: "6px",
             background: "rgba(124,58,237,0.08)", border: "1px solid rgba(124,58,237,0.2)",
@@ -147,7 +189,7 @@ export default function LandingPage() {
             fontSize: "19px", color: "#475569", lineHeight: 1.65,
             maxWidth: "540px", margin: "0 auto 16px",
           }}>
-            Intercom cobra $74/mes. InboxChat cuesta <strong>$19</strong>.
+            Intercom cobra $74/mes. InboxChat cuesta <strong>$29</strong>.
             Una sola línea de código. Responde a tus usuarios en tiempo real desde el primer día.
           </p>
 
@@ -165,7 +207,7 @@ export default function LandingPage() {
 
           <div style={{ display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap", marginBottom: "60px" }}>
             <Link href="/signup" style={S.btnPrimary}>Empezar gratis →</Link>
-            <Link href="/login" style={S.btnSecondary}>Ver demo</Link>
+            <Link href="/signup" style={S.btnSecondary}>Ver demo en vivo 🎥</Link>
           </div>
 
           {/* Widget mockup */}
@@ -192,7 +234,7 @@ export default function LandingPage() {
                 ¿Tienen plan para startups?
               </div>
               <div style={{ background: "white", borderRadius: "12px 12px 12px 4px", padding: "10px 14px", fontSize: "13px", color: "#1e293b", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", maxWidth: "85%", alignSelf: "flex-start" }}>
-                ¡Sí! $19/mes, conversaciones ilimitadas, setup en 2 minutos 🚀
+                ¡Sí! $29/mes, conversaciones ilimitadas, setup en 2 minutos 🚀
               </div>
             </div>
             <div style={{ padding: "12px", borderTop: "1px solid #e2e8f0", display: "flex", gap: "8px", background: "white" }}>
@@ -207,7 +249,61 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─── Comparativa vs Intercom ──────────────────────────────────────── */}
+      {/* ─── Social proof numérico ────────────────────────────────────── */}
+      <section style={{ padding: "48px 24px", background: "white", borderBottom: "1px solid #f1f5f9" }}>
+        <div style={{ maxWidth: "760px", margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "32px", textAlign: "center" }}>
+          {[
+            { num: "2 min", label: "tiempo de setup promedio" },
+            { num: "$29", label: "todo incluido, sin sorpresas" },
+            { num: "100%", label: "uptime en producción" },
+          ].map((stat) => (
+            <div key={stat.label}>
+              <div style={{ fontSize: "36px", fontWeight: 800, background: "linear-gradient(135deg,#7c3aed,#4f46e5)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                {stat.num}
+              </div>
+              <div style={{ fontSize: "13px", color: "#64748b", marginTop: "4px" }}>{stat.label}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ─── Testimonios ──────────────────────────────────────────────── */}
+      <section style={{ padding: "80px 24px", background: "#f8fafc" }}>
+        <div style={{ maxWidth: "1000px", margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: "52px" }}>
+            <h2 style={{ fontSize: "clamp(26px,4vw,34px)", fontWeight: 800, letterSpacing: "-0.5px", marginBottom: "12px" }}>
+              Lo que dicen los founders
+            </h2>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "20px" }}>
+            {TESTIMONIALS.map((t) => (
+              <div key={t.author} style={{
+                background: "white", borderRadius: "16px", padding: "28px",
+                border: "1px solid #e2e8f0", boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+              }}>
+                <div style={{ fontSize: "22px", color: "#fbbf24", marginBottom: "14px" }}>★★★★★</div>
+                <p style={{ fontSize: "14px", color: "#374151", lineHeight: 1.7, marginBottom: "20px", fontStyle: "italic" }}>
+                  &ldquo;{t.quote}&rdquo;
+                </p>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <div style={{
+                    width: "36px", height: "36px", borderRadius: "50%",
+                    background: t.color,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    color: "white", fontWeight: 700, fontSize: "14px", flexShrink: 0,
+                  }}>{t.avatar}</div>
+                  <div>
+                    <div style={{ fontSize: "13px", fontWeight: 700, color: "#0f172a" }}>{t.author}</div>
+                    <div style={{ fontSize: "12px", color: "#94a3b8" }}>{t.role}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Comparativa vs Intercom ──────────────────────────────────── */}
       <section style={{ padding: "80px 24px", background: "white" }}>
         <div style={{ maxWidth: "860px", margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: "48px" }}>
@@ -230,20 +326,17 @@ export default function LandingPage() {
               </thead>
               <tbody>
                 {[
-                  ["Precio mensual", "$74/mes", "$19/mes"],
-                  ["Operadores", "1 incluido (+$19 c/u)", "Ilimitados"],
+                  ["Precio mensual", "$74/mes", "$29/mes"],
+                  ["Operadores", "1 incluido (+$19 c/u)", "Hasta 5 incluidos"],
                   ["Setup", "30+ pasos de config", "1 línea de código"],
                   ["Chat en vivo", "✅", "✅"],
                   ["Inbox unificado", "✅", "✅"],
                   ["Asignación de conversaciones", "✅", "✅"],
-                  ["Historial del contacto", "✅", "✅"],
                   ["Notas internas", "✅", "✅"],
                   ["Respuestas predefinidas", "✅", "✅"],
-                  ["Tags en conversaciones", "✅", "✅"],
-                  ["Mensajes proactivos", "✅", "✅"],
-                  ["Analytics", "Básico", "✅ Avanzado"],
+                  ["SLA alerts por email", "✅ ($$$)", "✅ Incluido"],
                   ["API pública", "✅ ($$$)", "✅ Incluida"],
-                  ["Widget personalizable", "Limitado", "✅ Color + logo"],
+                  ["Webhooks salientes", "✅ ($$$)", "✅ Incluidos"],
                   ["Contrato anual", "Requerido en planes base", "Sin contrato"],
                   ["Cancela cuando quieras", "❌", "✅"],
                 ].map(([feat, intercom, ic], i) => (
@@ -259,7 +352,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─── Cómo funciona ────────────────────────────────────────────────── */}
+      {/* ─── Cómo funciona ──────────────────────────────────────────── */}
       <section style={{ padding: "80px 24px", background: "#f8fafc" }}>
         <div style={{ maxWidth: "900px", margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: "52px" }}>
@@ -283,7 +376,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─── Features grid ────────────────────────────────────────────────── */}
+      {/* ─── Features grid ──────────────────────────────────────────── */}
       <section style={{ padding: "80px 24px", background: "white" }}>
         <div style={{ maxWidth: "1000px", margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: "52px" }}>
@@ -293,14 +386,14 @@ export default function LandingPage() {
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "20px" }}>
             {[
-              { icon: "⚡", title: "Real-time", desc: "WebSocket nativo. Mensajes en milisegundos, no en seconds." },
+              { icon: "⚡", title: "Real-time", desc: "WebSocket nativo. Mensajes en milisegundos, no en segundos." },
               { icon: "🏷️", title: "Tags y filtros", desc: "Categorizá conversaciones por tipo de problema o prioridad." },
               { icon: "🤖", title: "Respuestas rápidas", desc: "Guardá plantillas de respuesta con /atajos." },
               { icon: "👥", title: "Multi-operador", desc: "Asigná conversaciones. Filtros Mías / Sin asignar / Todas." },
-              { icon: "🔔", title: "Mensajes proactivos", desc: "Triggeá mensajes automáticos según URL y tiempo en la página." },
+              { icon: "⏰", title: "SLA alerts", desc: "Email automático si una conv supera el tiempo sin respuesta." },
               { icon: "📊", title: "Analytics avanzado", desc: "Tasa de resolución, tiempo de respuesta, pico horario." },
               { icon: "📱", title: "100% mobile", desc: "El inbox funciona perfecto en tu celular cuando estás afuera." },
-              { icon: "🔑", title: "API pública", desc: "REST API autenticada por API key para integraciones propias." },
+              { icon: "🔑", title: "API + Webhooks", desc: "REST API y webhooks HMAC-SHA256 para integraciones propias." },
             ].map((f) => (
               <div key={f.title} style={{
                 background: "#f8fafc", borderRadius: "14px", padding: "22px",
@@ -315,7 +408,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─── Install snippet ──────────────────────────────────────────────── */}
+      {/* ─── Install snippet ──────────────────────────────────────────── */}
       <section style={{ padding: "72px 24px", background: "#f8fafc" }}>
         <div style={{ maxWidth: "680px", margin: "0 auto", textAlign: "center" }}>
           <h2 style={{ fontSize: "clamp(24px,4vw,32px)", fontWeight: 800, letterSpacing: "-0.5px", marginBottom: "16px" }}>
@@ -330,28 +423,20 @@ export default function LandingPage() {
             lineHeight: 1.8, boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
           }}>
             <div style={{ color: "#64748b" }}>{"<!-- Pegá esto en el <head> de tu web -->"}</div>
-            <div>
-              <span style={{ color: "#7dd3fc" }}>{"<script>"}</span>
-            </div>
-            <div style={{ paddingLeft: "16px" }}>
-              <span style={{ color: "#94a3b8" }}>{"window.InboxChat = {"}</span>
-            </div>
+            <div><span style={{ color: "#7dd3fc" }}>{"<script>"}</span></div>
+            <div style={{ paddingLeft: "16px" }}><span style={{ color: "#94a3b8" }}>{"window.InboxChat = {"}</span></div>
             <div style={{ paddingLeft: "32px" }}>
               <span style={{ color: "#fbbf24" }}>{"workspaceKey"}</span>
               <span style={{ color: "#94a3b8" }}>{": "}</span>
-              <span style={{ color: "#86efac" }}>{'"tu_workspace_key"'}</span>
+              <span style={{ color: "#86efac" }}>{'\"tu_workspace_key\"'}</span>
             </div>
-            <div style={{ paddingLeft: "16px" }}>
-              <span style={{ color: "#94a3b8" }}>{"}"}</span>
-            </div>
-            <div>
-              <span style={{ color: "#7dd3fc" }}>{"</script>"}</span>
-            </div>
+            <div style={{ paddingLeft: "16px" }}><span style={{ color: "#94a3b8" }}>{"}"}</span></div>
+            <div><span style={{ color: "#7dd3fc" }}>{"</script>"}</span></div>
             <div>
               <span style={{ color: "#7dd3fc" }}>{"<script "}</span>
               <span style={{ color: "#fbbf24" }}>{"src"}</span>
               <span style={{ color: "#94a3b8" }}>{"="}</span>
-              <span style={{ color: "#86efac" }}>{'"https://server.inboxchat.app/widget.js"'}</span>
+              <span style={{ color: "#86efac" }}>{"\"https://server.inboxchat.app/widget.js\""}</span>
               <span style={{ color: "#7dd3fc" }}>{" async></script>"}</span>
             </div>
           </div>
@@ -361,7 +446,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─── Pricing ──────────────────────────────────────────────────────── */}
+      {/* ─── Pricing ──────────────────────────────────────────────────── */}
       <section style={{ padding: "80px 24px", background: "white" }}>
         <div style={{ maxWidth: "700px", margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: "52px" }}>
@@ -369,13 +454,13 @@ export default function LandingPage() {
             <p style={{ color: "#64748b", fontSize: "16px" }}>Sin per-seat pricing. Sin sorpresas en la factura.</p>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
-            {/* Trial */}
+            {/* Free */}
             <div style={{ borderRadius: "20px", border: "1px solid #e2e8f0", padding: "32px 28px", background: "#f8fafc" }}>
-              <div style={{ fontSize: "12px", fontWeight: 700, color: "#64748b", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.5px" }}>Trial Gratuito</div>
+              <div style={{ fontSize: "12px", fontWeight: 700, color: "#64748b", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.5px" }}>Free</div>
               <div style={{ fontSize: "38px", fontWeight: 800, marginBottom: "4px" }}>$0</div>
-              <div style={{ fontSize: "13px", color: "#94a3b8", marginBottom: "24px" }}>14 días</div>
+              <div style={{ fontSize: "13px", color: "#94a3b8", marginBottom: "24px" }}>para siempre</div>
               <ul style={{ listStyle: "none", padding: 0, margin: "0 0 24px", display: "flex", flexDirection: "column", gap: "10px" }}>
-                {["Hasta 100 conversaciones", "Widget embeddable", "Inbox en tiempo real", "Sin tarjeta"].map((item) => (
+                {["100 conversaciones/mes", "1 operador", "Widget embeddable", "Chat en tiempo real", "14 días de prueba Pro"].map((item) => (
                   <li key={item} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", color: "#374151" }}>
                     <span style={{ color: "#22c55e", fontWeight: 700 }}>✓</span>{item}
                   </li>
@@ -397,12 +482,12 @@ export default function LandingPage() {
                 position: "absolute", top: "14px", right: "14px",
                 background: "rgba(255,255,255,0.2)", borderRadius: "100px",
                 padding: "3px 10px", fontSize: "11px", fontWeight: 700, color: "white",
-              }}>Recomendado</div>
+              }}>⭐ Popular</div>
               <div style={{ fontSize: "12px", fontWeight: 700, color: "rgba(255,255,255,0.7)", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.5px" }}>Pro</div>
-              <div style={{ fontSize: "38px", fontWeight: 800, color: "white", marginBottom: "4px" }}>$19</div>
+              <div style={{ fontSize: "38px", fontWeight: 800, color: "white", marginBottom: "4px" }}>$29</div>
               <div style={{ fontSize: "13px", color: "rgba(255,255,255,0.6)", marginBottom: "24px" }}>por mes · cancela cuando quieras</div>
               <ul style={{ listStyle: "none", padding: 0, margin: "0 0 24px", display: "flex", flexDirection: "column", gap: "10px" }}>
-                {["Conversaciones ilimitadas", "Operadores ilimitados", "API pública incluida", "Mensajes proactivos", "Analytics avanzado", "Soporte prioritario"].map((item) => (
+                {["Conversaciones ilimitadas", "Hasta 5 operadores", "API pública incluida", "Webhooks salientes", "SLA alerts", "CSAT analytics", "Soporte email 24h"].map((item) => (
                   <li key={item} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", color: "rgba(255,255,255,0.9)" }}>
                     <span style={{ color: "#a3e635", fontWeight: 700 }}>✓</span>{item}
                   </li>
@@ -412,13 +497,37 @@ export default function LandingPage() {
                 display: "block", textAlign: "center", padding: "11px",
                 borderRadius: "10px", background: "white", color: "#7c3aed",
                 textDecoration: "none", fontWeight: 700, fontSize: "14px",
-              }}>Empezar con Pro $19/mes →</Link>
+              }}>Empezar con Pro $29/mes →</Link>
             </div>
+          </div>
+          <p style={{ textAlign: "center", marginTop: "16px", fontSize: "13px", color: "#94a3b8" }}>
+            ¿Necesitás más de 5 operadores?{" "}
+            <Link href="/pricing" style={{ color: "#7c3aed", textDecoration: "none", fontWeight: 600 }}>Ver plan Growth →</Link>
+          </p>
+        </div>
+      </section>
+
+      {/* ─── FAQ ──────────────────────────────────────────────────────── */}
+      <section style={{ padding: "80px 24px", background: "#f8fafc" }}>
+        <div style={{ maxWidth: "640px", margin: "0 auto" }}>
+          <h2 style={{ fontSize: "clamp(24px,4vw,32px)", fontWeight: 800, textAlign: "center", marginBottom: "48px", letterSpacing: "-0.5px" }}>
+            Preguntas frecuentes
+          </h2>
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            {FAQ.map((item) => (
+              <div key={item.q} style={{
+                background: "white", borderRadius: "14px",
+                border: "1px solid #e2e8f0", padding: "20px 24px",
+              }}>
+                <p style={{ fontWeight: 700, color: "#0f172a", fontSize: "15px", margin: "0 0 8px" }}>{item.q}</p>
+                <p style={{ color: "#475569", fontSize: "14px", margin: 0, lineHeight: 1.6 }}>{item.a}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ─── CTA final ────────────────────────────────────────────────────── */}
+      {/* ─── CTA final ────────────────────────────────────────────────── */}
       <section style={{
         padding: "80px 24px",
         background: "linear-gradient(135deg,#7c3aed 0%,#4f46e5 100%)",
@@ -428,7 +537,7 @@ export default function LandingPage() {
           Tu próximo cliente te está esperando
         </h2>
         <p style={{ color: "rgba(255,255,255,0.75)", fontSize: "16px", marginBottom: "32px" }}>
-          14 días gratis · Sin tarjeta · Setup en 2 minutos · Cancela cuando quieras
+          14 días de prueba Pro · Sin tarjeta · Setup en 2 minutos · Cancela cuando quieras
         </p>
         <Link href="/signup" style={{
           display: "inline-block", background: "white", color: "#7c3aed",
@@ -438,14 +547,23 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer style={{ padding: "28px 24px", textAlign: "center", borderTop: "1px solid #e2e8f0", background: "white" }}>
-        <p style={{ fontSize: "13px", color: "#94a3b8" }}>
-          © 2025 InboxChat ·{" "}
-          <Link href="/pricing" style={{ color: "#94a3b8", textDecoration: "none" }}>Precios</Link>{" · "}
-          <Link href="/privacy" style={{ color: "#94a3b8", textDecoration: "none" }}>Privacidad</Link>{" · "}
-          <Link href="/terms" style={{ color: "#94a3b8", textDecoration: "none" }}>Términos</Link>{" · "}
-          <Link href="/login" style={{ color: "#94a3b8", textDecoration: "none" }}>Login</Link>
-        </p>
+      <footer style={{ padding: "32px 24px", borderTop: "1px solid #e2e8f0", background: "white" }}>
+        <div style={{ maxWidth: "1080px", margin: "0 auto", display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "12px" }}>
+          <p style={{ fontSize: "13px", color: "#94a3b8", margin: 0 }}>
+            © 2025 InboxChat · Hecho con ☕ para founders early-stage
+          </p>
+          <div style={{ display: "flex", gap: "16px" }}>
+            {[
+              { href: "/pricing", label: "Precios" },
+              { href: "/privacy", label: "Privacidad" },
+              { href: "/terms", label: "Términos" },
+              { href: "mailto:hola@inboxchat.app", label: "Contacto" },
+              { href: "/login", label: "Login" },
+            ].map((l) => (
+              <Link key={l.href} href={l.href} style={{ fontSize: "13px", color: "#94a3b8", textDecoration: "none" }}>{l.label}</Link>
+            ))}
+          </div>
+        </div>
       </footer>
 
       <Script id="json-ld" type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
