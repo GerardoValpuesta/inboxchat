@@ -77,7 +77,23 @@ async function bootstrap() {
   });
 
   await app.register(helmet, {
-    contentSecurityPolicy: false,
+    // Content-Security-Policy: protege el dashboard contra XSS
+    // El widget.js se sirve sin CSP (Access-Control-Allow-Origin: *)
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc:     ["'self'"],
+        scriptSrc:      ["'self'"],
+        connectSrc:     ["'self'", "wss:", env.WEB_URL ?? ""],
+        imgSrc:         ["'self'", "data:", "https:"],
+        styleSrc:       ["'self'", "'unsafe-inline'"], // unsafe-inline necesario para Tailwind/CSS-in-JS
+        fontSrc:        ["'self'", "https://fonts.gstatic.com"],
+        frameSrc:       ["'none'"],
+        objectSrc:      ["'none'"],
+        upgradeInsecureRequests: [],
+      },
+    },
+    // Otros headers de seguridad de helmet (activados por defecto)
+    crossOriginEmbedderPolicy: false, // deshabilitada para no romper el widget embed
   });
 
   // Rate limiting: protege contra brute-force y abuso

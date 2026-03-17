@@ -131,6 +131,24 @@ export function registerSocketHandlers(io: AppServer, db: Database) {
         // 5. Notificar al dashboard del operador
         io.to(`workspace:${workspace.id}`).emit("conversation:new", { conversation });
 
+        // 6. Tracking de activación — fire-and-forget
+        void (async () => {
+          try {
+            // 'widget_installed' en la primera conversación del workspace
+            const [existing] = await db<{ total: number }[]>`
+              SELECT COUNT(*)::int AS total FROM workspace_events
+              WHERE workspace_id = ${workspace.id} AND event = 'widget_installed'
+            `;
+            if (!existing || existing.total === 0) {
+              await db`
+                INSERT INTO workspace_events (workspace_id, event, properties)
+                VALUES (${workspace.id}, 'widget_installed', ${JSON.stringify({ conversation_id: conversationRow.id })}::jsonb)
+                ON CONFLICT DO NOTHING
+              `;
+            }
+          } catch { /* non-fatal */ }
+        })();
+
         callback({ ok: true, conversation });
       } catch (err) {
         console.error("[socket] conversation:start error", err);
@@ -224,6 +242,26 @@ export function registerSocketHandlers(io: AppServer, db: Database) {
         if (sender === "contact") {
           await incrementUnreadCount(db, conversationId);
 
+          // Tracking: first_message del workspace
+          void (async () => {
+            try {
+              const wsId = socket.data.workspaceId;
+              if (wsId) {
+                const [existing] = await db<{ total: number }[]>`
+                  SELECT COUNT(*)::int AS total FROM workspace_events
+                  WHERE workspace_id = ${wsId} AND event = 'first_message'
+                `;
+                if (!existing || existing.total === 0) {
+                  await db`
+                    INSERT INTO workspace_events (workspace_id, event, properties)
+                    VALUES (${wsId}, 'first_message', ${JSON.stringify({ conversation_id: conversationId })}::jsonb)
+                    ON CONFLICT DO NOTHING
+                  `;
+                }
+              }
+            } catch { /* non-fatal */ }
+          })();
+
           try {
             const workspaceId = socket.data.workspaceId;
             if (workspaceId && process.env["RESEND_API_KEY"]) {
@@ -277,6 +315,26 @@ export function registerSocketHandlers(io: AppServer, db: Database) {
             body: message.body,
             sender,
           });
+
+          // Tracking: first_reply del operador
+          if (sender === "operator") {
+            void (async () => {
+              try {
+                const wsId = socket.data.workspaceId!;
+                const [existing] = await db<{ total: number }[]>`
+                  SELECT COUNT(*)::int AS total FROM workspace_events
+                  WHERE workspace_id = ${wsId} AND event = 'first_reply'
+                `;
+                if (!existing || existing.total === 0) {
+                  await db`
+                    INSERT INTO workspace_events (workspace_id, event, properties)
+                    VALUES (${wsId}, 'first_reply', ${JSON.stringify({ conversation_id: conversationId })}::jsonb)
+                    ON CONFLICT DO NOTHING
+                  `;
+                }
+              } catch { /* non-fatal */ }
+            })();
+          }
         }
 
         // 7. Notificación del workspace (best-effort)
