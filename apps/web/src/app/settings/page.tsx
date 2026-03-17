@@ -59,6 +59,31 @@ export default function SettingsPage() {
   const [editShortcut, setEditShortcut] = useState("");
   const [editBody, setEditBody] = useState("");
 
+  // Business Hours
+  type DayKey = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+  type DaySchedule = { open: string; close: string; enabled: boolean };
+  const [bhEnabled, setBhEnabled] = useState(false);
+  const [bhDays, setBhDays] = useState<Record<DayKey, DaySchedule>>({
+    mon: { open: "09:00", close: "18:00", enabled: true },
+    tue: { open: "09:00", close: "18:00", enabled: true },
+    wed: { open: "09:00", close: "18:00", enabled: true },
+    thu: { open: "09:00", close: "18:00", enabled: true },
+    fri: { open: "09:00", close: "18:00", enabled: true },
+    sat: { open: "10:00", close: "14:00", enabled: false },
+    sun: { open: "10:00", close: "14:00", enabled: false },
+  });
+  const [bhOffMsg, setBhOffMsg] = useState("Estamos fuera de horario. Te responderemos el próximo día hábil.");
+  const [bhTimezone, setBhTimezone] = useState("America/Mexico_City");
+  const [savingBH, setSavingBH] = useState(false);
+  const [bhSaved, setBhSaved] = useState(false);
+
+  // Webhooks
+  const [webhooks, setWebhooks] = useState<{ id: string; url: string; events: string[]; enabled: boolean }[]>([]);
+  const [newWebhookUrl, setNewWebhookUrl] = useState("");
+  const [newWebhookSecret, setNewWebhookSecret] = useState("");
+  const [addingWebhook, setAddingWebhook] = useState(false);
+  const [webhookError, setWebhookError] = useState("");
+
   useEffect(() => {
     Promise.all([
       fetch(`${SERVER_URL}/api/billing/status`, { headers: getAuthHeaders() as HeadersInit }),
@@ -110,6 +135,24 @@ export default function SettingsPage() {
           const cannedData = await cannedRes.json() as { cannedResponses: typeof cannedResponses };
           setCannedResponses(cannedData.cannedResponses ?? []);
         }
+        // Cargar business hours desde workspace/me
+        const bhData = await meRes.clone().json().catch(() => null) as { workspace?: { businessHours?: unknown; timezone?: string } } | null;
+        const bhRaw = (await meRes.json().catch(() => null) as { workspace?: { businessHours?: Record<string, { open: string; close: string; enabled: boolean }> | null; timezone?: string } } | null)?.workspace;
+        if (bhRaw?.businessHours) {
+          const bh = bhRaw.businessHours as Record<string, { open: string; close: string; enabled: boolean }>;
+          setBhEnabled((bh as unknown as { enabled?: boolean }).enabled !== false);
+          setBhDays((prev) => ({ ...prev, ...bh }));
+          if ((bh as unknown as { offHoursMessage?: string }).offHoursMessage) {
+            setBhOffMsg((bh as unknown as { offHoursMessage: string }).offHoursMessage);
+          }
+          if (bhRaw.timezone) setBhTimezone(bhRaw.timezone);
+        }
+        // Cargar webhooks
+        const whRes = await fetch(`${SERVER_URL}/api/webhooks`, { headers: getAuthHeaders() as HeadersInit });
+        if (whRes.ok) {
+          const whData = await whRes.json() as { webhooks: typeof webhooks };
+          setWebhooks(whData.webhooks ?? []);
+        }
       })
       .catch(() => router.push("/login"))
       .finally(() => setLoading(false));
@@ -142,6 +185,61 @@ export default function SettingsPage() {
     } finally {
       setSavingWidget(false);
     }
+  }
+
+  async function saveBusinessHours() {
+    setSavingBH(true);
+    try {
+      await fetch(`${SERVER_URL}/api/workspace/me`, {
+        method: "PATCH",
+        headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({
+          businessHours: { enabled: bhEnabled, days: bhDays, offHoursMessage: bhOffMsg },
+          timezone: bhTimezone,
+        }),
+      });
+      setBhSaved(true);
+      setTimeout(() => setBhSaved(false), 2000);
+    } finally {
+      setSavingBH(false);
+    }
+  }
+
+  async function addWebhook(e: React.FormEvent) {
+    e.preventDefault();
+    setAddingWebhook(true);
+    setWebhookError("");
+    try {
+      const res = await fetch(`${SERVER_URL}/api/webhooks`, {
+        method: "POST",
+        headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ url: newWebhookUrl, ...(newWebhookSecret ? { secret: newWebhookSecret } : {}) }),
+      });
+      const d = await res.json() as { webhook?: { id: string; url: string; events: string[]; enabled: boolean }; error?: string };
+      if (res.ok && d.webhook) {
+        setWebhooks((prev) => [...prev, d.webhook!]);
+        setNewWebhookUrl("");
+        setNewWebhookSecret("");
+      } else {
+        setWebhookError(d.error ?? "Error al crear webhook");
+      }
+    } finally {
+      setAddingWebhook(false);
+    }
+  }
+
+  async function deleteWebhook(id: string) {
+    await fetch(`${SERVER_URL}/api/webhooks/${id}`, { method: "DELETE", headers: getAuthHeaders() as HeadersInit });
+    setWebhooks((prev) => prev.filter((w) => w.id !== id));
+  }
+
+  async function toggleWebhook(id: string, enabled: boolean) {
+    await fetch(`${SERVER_URL}/api/webhooks/${id}`, {
+      method: "PATCH",
+      headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled }),
+    });
+    setWebhooks((prev) => prev.map((w) => w.id === id ? { ...w, enabled } : w));
   }
 
   async function inviteOperator(e: React.FormEvent) {
@@ -644,6 +742,150 @@ export default function SettingsPage() {
                 {copied ? "✓ Copiado" : "Copiar key"}
               </button>
             </div>
+          </div>
+
+          {/* Business Hours */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900 uppercase tracking-wide">Horarios de Atención</h2>
+                <p className="text-xs text-slate-500 mt-0.5">El widget mostrará un mensaje Off-hours fuera del horario configurado</p>
+              </div>
+              <button
+                onClick={() => setBhEnabled((v) => !v)}
+                className={`relative w-10 h-5.5 rounded-full transition-colors flex-shrink-0 ${bhEnabled ? "bg-violet-600" : "bg-slate-300"}`}
+                style={{ width: 40, height: 22 }}
+              >
+                <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${bhEnabled ? "translate-x-5" : "translate-x-0.5"}`} />
+              </button>
+            </div>
+
+            {bhEnabled && (
+              <>
+                {/* Timezone */}
+                <div className="mb-4">
+                  <label className="text-xs font-medium text-slate-600 mb-1 block">Zona horaria</label>
+                  <select
+                    value={bhTimezone}
+                    onChange={(e) => setBhTimezone(e.target.value)}
+                    className="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 text-slate-700 bg-white"
+                  >
+                    {["America/Mexico_City","America/Bogota","America/Buenos_Aires","America/Santiago","America/Lima","America/Caracas","America/New_York","America/Los_Angeles","Europe/Madrid","UTC"].map((tz) => (
+                      <option key={tz} value={tz}>{tz}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Días */}
+                <div className="space-y-2 mb-4">
+                  {(["mon","tue","wed","thu","fri","sat","sun"] as const).map((day) => {
+                    const labels: Record<string, string> = { mon:"Lunes", tue:"Martes", wed:"Miércoles", thu:"Jueves", fri:"Viernes", sat:"Sábado", sun:"Domingo" };
+                    const d = bhDays[day];
+                    return (
+                      <div key={day} className="flex items-center gap-3">
+                        <button
+                          onClick={() => setBhDays((prev) => ({ ...prev, [day]: { ...prev[day]!, enabled: !prev[day]!.enabled } }))}
+                          className={`w-8 h-4 rounded-full transition-colors flex-shrink-0 relative ${d.enabled ? "bg-violet-500" : "bg-slate-200"}`}
+                          style={{ minWidth: 32, height: 18 }}
+                        >
+                          <span className={`absolute top-0.5 w-3.5 h-3.5 bg-white rounded-full shadow transition-transform ${d.enabled ? "translate-x-3.5" : "translate-x-0.5"}`} />
+                        </button>
+                        <span className={`text-xs w-20 flex-shrink-0 ${d.enabled ? "text-slate-700 font-medium" : "text-slate-400"}`}>{labels[day]}</span>
+                        {d.enabled && (
+                          <>
+                            <input type="time" value={d.open} onChange={(e) => setBhDays((prev) => ({ ...prev, [day]: { ...prev[day]!, open: e.target.value } }))}
+                              className="text-xs border border-slate-200 rounded-lg px-2 py-1 text-slate-700 w-24" />
+                            <span className="text-xs text-slate-400">a</span>
+                            <input type="time" value={d.close} onChange={(e) => setBhDays((prev) => ({ ...prev, [day]: { ...prev[day]!, close: e.target.value } }))}
+                              className="text-xs border border-slate-200 rounded-lg px-2 py-1 text-slate-700 w-24" />
+                          </>
+                        )}
+                        {!d.enabled && <span className="text-xs text-slate-400 italic">Cerrado</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Mensaje off-hours */}
+                <div className="mb-4">
+                  <label className="text-xs font-medium text-slate-600 mb-1 block">Mensaje fuera de horario</label>
+                  <textarea
+                    value={bhOffMsg}
+                    onChange={(e) => setBhOffMsg(e.target.value)}
+                    rows={2}
+                    className="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 text-slate-700 resize-none"
+                  />
+                </div>
+              </>
+            )}
+
+            <button
+              onClick={() => void saveBusinessHours()}
+              disabled={savingBH}
+              className="mt-1 px-4 py-2 text-xs font-semibold bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors disabled:opacity-50"
+            >
+              {bhSaved ? "✓ Guardado" : savingBH ? "Guardando..." : "Guardar horarios"}
+            </button>
+          </div>
+
+          {/* Webhooks salientes */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+            <h2 className="text-sm font-semibold text-slate-900 uppercase tracking-wide mb-1">Webhooks Salientes</h2>
+            <p className="text-xs text-slate-500 mb-4">Recibí un POST en tu URL con cada mensaje nuevo. Usá el secret para validar con HMAC-SHA256.</p>
+
+            {/* Lista de webhooks existentes */}
+            {webhooks.length > 0 && (
+              <div className="space-y-2 mb-4">
+                {webhooks.map((wh) => (
+                  <div key={wh.id} className="flex items-center gap-2 p-3 rounded-xl border border-slate-100 bg-slate-50">
+                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${wh.enabled ? "bg-emerald-400" : "bg-slate-300"}`} />
+                    <code className="text-xs font-mono text-slate-700 flex-1 truncate">{wh.url}</code>
+                    <span className="text-[10px] text-slate-400 flex-shrink-0">{wh.events.join(", ")}</span>
+                    <button
+                      onClick={() => void toggleWebhook(wh.id, !wh.enabled)}
+                      className={`text-[10px] px-2 py-1 rounded-md font-medium transition-colors flex-shrink-0 ${
+                        wh.enabled ? "bg-slate-100 text-slate-500 hover:bg-slate-200" : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
+                      }`}
+                    >
+                      {wh.enabled ? "Pausar" : "Activar"}
+                    </button>
+                    <button
+                      onClick={() => void deleteWebhook(wh.id)}
+                      className="text-[10px] px-2 py-1 rounded-md bg-red-50 text-red-500 hover:bg-red-100 font-medium transition-colors flex-shrink-0"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Agregar nuevo webhook */}
+            <form onSubmit={(e) => { void addWebhook(e); }} className="space-y-2">
+              <input
+                type="url"
+                value={newWebhookUrl}
+                onChange={(e) => setNewWebhookUrl(e.target.value)}
+                placeholder="https://tu-servidor.com/webhook"
+                required
+                className="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 text-slate-700"
+              />
+              <input
+                type="text"
+                value={newWebhookSecret}
+                onChange={(e) => setNewWebhookSecret(e.target.value)}
+                placeholder="Secret opcional (para HMAC-SHA256)"
+                className="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 text-slate-700"
+              />
+              {webhookError && <p className="text-xs text-red-500">{webhookError}</p>}
+              <button
+                type="submit"
+                disabled={addingWebhook}
+                className="px-4 py-2 text-xs font-semibold bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50"
+              >
+                {addingWebhook ? "Agregando..." : "+ Agregar webhook"}
+              </button>
+            </form>
           </div>
 
           {/* Snippet de instalación */}
