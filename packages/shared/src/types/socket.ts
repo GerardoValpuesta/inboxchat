@@ -79,7 +79,7 @@ export interface ClientToServerEvents {
     payload: MessageSendPayload,
     callback: (result: { ok: true; message: Message } | { ok: false; error: string }) => void
   ) => void;
-  "operator:join": (workspaceId: string) => void;
+  "operator:join": (payload: { workspaceId: string; token: string }) => void;
   // Typing indicators — emitidos por widget y dashboard
   "typing:start": (payload: { conversationId: string }) => void;
   "typing:stop": (payload: { conversationId: string }) => void;
@@ -96,6 +96,7 @@ export interface SocketData {
   contactId?: string;
   conversationId?: string;
   isOperator?: boolean;
+  operatorId?: string; // ID del operador autenticado (disponible después de operator:join)
 }
 
 // Re-export de tipos de dominio para conveniencia

@@ -60,8 +60,11 @@ export function useSocket(workspaceId: string) {
 
     socket.on("connect", () => {
       setConnected(true);
-      // Unirse a la sala del workspace para recibir nuevas conversaciones
-      socket.emit("operator:join", workspaceId);
+      // Unirse a la sala del workspace — envía JWT para que el server lo valide
+      const token = typeof window !== "undefined" ? localStorage.getItem("ic_token") : null;
+      if (token) {
+        socket.emit("operator:join", { workspaceId, token });
+      }
     });
 
     socket.on("disconnect", () => {

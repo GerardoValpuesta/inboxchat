@@ -54,8 +54,23 @@ async function bootstrap() {
 
   await app.register(cors, {
     origin: (origin, callback) => {
+      // Sin origin = request server-to-server o curl → permitir
       if (!origin) return callback(null, true);
-      if (isAllowedOrigin(origin)) return callback(null, true);
+
+      if (env.NODE_ENV === "production") {
+        // En producción: SOLO el dashboard oficial
+        const allowed = new Set([env.WEB_URL, "http://localhost:3000"]);
+        if (allowed.has(origin)) return callback(null, true);
+      } else {
+        // En dev/staging: también permitir previews de Vercel y Railway
+        if (
+          allowedOrigins.has(origin) ||
+          origin.endsWith(".vercel.app") ||
+          origin.endsWith(".railway.app") ||
+          origin.endsWith(".up.railway.app")
+        ) return callback(null, true);
+      }
+
       callback(new Error(`CORS: origin no permitido: ${origin}`), false);
     },
     credentials: true,

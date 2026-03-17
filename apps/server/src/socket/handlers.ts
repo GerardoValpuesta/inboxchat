@@ -18,6 +18,7 @@ import {
 } from "../db/queries.js";
 import { sendNewConversationEmail } from "../lib/email.js";
 import { sendWebhookEvent } from "../routes/webhooks.routes.js";
+import { verifyToken } from "../lib/jwt.js";
 
 
 type AppServer = Server<
@@ -301,13 +302,31 @@ export function registerSocketHandlers(io: AppServer, db: Database) {
     // ─── operator:join ────────────────────────────────────────────────────
     // El dashboard del operador se une a la sala del workspace para recibir
     // notificaciones de nuevas conversaciones y mensajes.
-    socket.on("operator:join", async (workspaceId) => {
-      socket.data.workspaceId = workspaceId;
-      socket.data.isOperator = true;
-      await socket.join(`workspace:${workspaceId}`);
+    // SECURITY: requiere JWT válido con workspaceId que coincida
+    socket.on("operator:join", async (payload) => {
+      try {
+        const { workspaceId: wsId, token } = payload;
+        if (!token || !wsId) {
+          socket.disconnect();
+          return;
+        }
 
-      // Notificar al widget que el operador está online
-      io.to(`workspace:${workspaceId}`).emit("operator:status", { online: true });
+        const decoded = verifyToken(token);
+        if (!decoded || decoded.workspaceId !== wsId) {
+          socket.disconnect();
+          return;
+        }
+
+        socket.data.workspaceId = wsId;
+        socket.data.isOperator = true;
+        socket.data.operatorId = decoded.sub;
+        await socket.join(`workspace:${wsId}`);
+
+        // Notificar al widget que el operador está online
+        io.to(`workspace:${wsId}`).emit("operator:status", { online: true });
+      } catch {
+        socket.disconnect();
+      }
     });
 
     // ─── typing:start / typing:stop ──────────────────────────────────────
