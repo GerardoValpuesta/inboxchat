@@ -1,6 +1,6 @@
 // Tipos de entidades del dominio
 
-export type ContactRole = "contact" | "operator" | "note";
+export type ContactRole = "contact" | "operator" | "note" | "bot";
 
 export interface Contact {
   id: string;

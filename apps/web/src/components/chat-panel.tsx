@@ -501,12 +501,13 @@ export function ChatPanel({ socketRef, typingMapRef, onToggleContact, showContac
         ) : (
           messages.filter((m) => !m.body.startsWith("__ic_ctx__")).map((message) => {
             const isOperator = message.sender === "operator";
+            const isBot = message.sender === "bot";
             return (
               <div
                 key={message.id}
                 className={cn(
                   "flex items-end gap-2 max-w-[70%]",
-                  message.sender === "operator" || message.sender === "note"
+                  message.sender === "operator" || message.sender === "note" || isBot
                     ? "ml-auto flex-row-reverse"
                     : "mr-auto"
                 )}
@@ -523,9 +524,11 @@ export function ChatPanel({ socketRef, typingMapRef, onToggleContact, showContac
                     "px-3.5 py-2 rounded-2xl text-sm leading-relaxed break-words",
                     message.sender === "note"
                       ? "bg-amber-50 border border-amber-200 text-amber-900 rounded-br-sm"
-                      : message.sender === "operator"
-                        ? "bg-slate-800 text-white rounded-br-sm"
-                        : "bg-slate-100 text-slate-800 rounded-bl-sm"
+                      : isBot
+                        ? "bg-gradient-to-br from-indigo-500 to-violet-600 text-white rounded-br-sm"
+                        : message.sender === "operator"
+                          ? "bg-slate-800 text-white rounded-br-sm"
+                          : "bg-slate-100 text-slate-800 rounded-bl-sm"
                   )}
                 >
                   {message.sender === "note" && (
@@ -535,6 +538,11 @@ export function ChatPanel({ socketRef, typingMapRef, onToggleContact, showContac
                           d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                       </svg>
                       Nota interna
+                    </span>
+                  )}
+                  {isBot && (
+                    <span className="flex items-center gap-1 text-[10px] font-semibold text-indigo-100 mb-1 uppercase tracking-wide">
+                      ✨ IA
                     </span>
                   )}
                   <p>{message.body}</p>

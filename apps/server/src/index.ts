@@ -153,6 +153,7 @@ async function bootstrap() {
   const { widgetAnalyticsRoutes } = await import("./routes/widget-analytics.routes.js");
   const { webhookRoutes } = await import("./routes/webhooks.routes.js");
   const { csatRoutes } = await import("./routes/csat.routes.js");
+  const { aiConfigRoutes } = await import("./routes/ai-config.routes.js");
   // El webhook de Stripe necesita raw body — registrarlo ANTES que helmet parsee el body
   await app.register(stripeWebhookRoute, { db });
   await app.register(authRoutes, { db });
@@ -172,6 +173,7 @@ async function bootstrap() {
   await app.register(widgetAnalyticsRoutes, { db });
   await app.register(webhookRoutes, { db });
   await app.register(csatRoutes, { db });
+  await app.register(aiConfigRoutes, { db });
 
   // 7. Esperar a que Fastify termine de inicializarse antes de adjuntar Socket.io
   // Esto evita el race condition donde Socket.io se adjunta antes de que
@@ -223,6 +225,10 @@ async function bootstrap() {
   // 11. SLA cron — monitorea convs sin respuesta y envía alertas por email
   const { startSlaCron } = await import("./lib/sla-cron.js");
   void startSlaCron(db);
+
+  // 12. AI Auto-Reply cron — respuestas automáticas con Gemini Flash
+  const { startAiAutoReplyCron } = await import("./lib/ai-auto-reply.js");
+  void startAiAutoReplyCron(db, io);
 }
 
 bootstrap().catch((err: unknown) => {
