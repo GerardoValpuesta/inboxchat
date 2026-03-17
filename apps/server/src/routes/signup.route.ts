@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { createOperator } from "../db/operators.js";
 import { signToken } from "../lib/jwt.js";
 import type { Database } from "../db/client.js";
+import { sendWelcomeEmail } from "../lib/email.js";
 
 const BCRYPT_ROUNDS = 10;
 
@@ -69,6 +70,21 @@ export async function signupRoute(
       email: operator.email,
       role: operator.role,
     });
+
+    // Email de bienvenida — fire-and-forget, no bloquea el signup
+    void (async () => {
+      try {
+        await sendWelcomeEmail({
+          to: email,
+          name,
+          workspaceName,
+          apiKey: workspace.api_key,
+          inboxUrl: `${process.env["WEB_URL"] ?? "https://inboxchat-web.vercel.app"}/inbox`,
+        });
+      } catch (emailErr) {
+        console.error("[signup] Welcome email error (non-fatal):", emailErr);
+      }
+    })();
 
     return reply.status(201).send({
       token,

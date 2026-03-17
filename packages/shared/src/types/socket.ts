@@ -64,6 +64,8 @@ export interface ServerToClientEvents {
   "conversation:closed": (payload: { conversationId: string }) => void;
   // Indicador de escritura — recibido por ambos lados
   "typing:update": (payload: { conversationId: string; isTyping: boolean; sender: "contact" | "operator" }) => void;
+  // Typing preview — el operador ve el texto que está escribiendo el visitante
+  "typing:preview": (payload: { conversationId: string; text: string }) => void;
   // Asignación de conversación — recibido por el dashboard
   "conversation:assigned": (payload: { conversationId: string; operatorId: string | null }) => void;
 }
@@ -83,6 +85,8 @@ export interface ClientToServerEvents {
   // Typing indicators — emitidos por widget y dashboard
   "typing:start": (payload: { conversationId: string }) => void;
   "typing:stop": (payload: { conversationId: string }) => void;
+  // Typing preview — emitido por el widget con el texto parcial
+  "visitor:typing": (payload: { conversationId: string; text: string; isTyping: boolean }) => void;
 }
 
 /** Eventos inter-server (si se escala con Redis adapter) */

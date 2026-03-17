@@ -426,6 +426,25 @@ export function registerSocketHandlers(io: AppServer, db: Database) {
       });
     });
 
+    // ─── visitor:typing ────────────────────────────────────────────────────
+    // El widget emite esto cada 300ms con el texto parcial (throttled).
+    // El servidor lo reemite al workspace para que el operador vea el preview.
+    socket.on("visitor:typing", ({ conversationId, text, isTyping }) => {
+      const wsId = socket.data.workspaceId;
+      if (!wsId) return;
+      // Emitir preview al operador (sala del workspace)
+      io.to(`workspace:${wsId}`).emit("typing:preview", {
+        conversationId,
+        text: text ?? "",
+      });
+      // Mantener también el indicador básico typing:update para retrocompat
+      socket.to(`conversation:${conversationId}`).emit("typing:update", {
+        conversationId,
+        isTyping,
+        sender: "contact",
+      });
+    });
+
     // ─── disconnect ───────────────────────────────────────────────────────
     socket.on("disconnect", () => {
       if (socket.data.isOperator && socket.data.workspaceId) {

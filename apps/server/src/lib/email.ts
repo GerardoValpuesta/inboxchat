@@ -192,3 +192,59 @@ export async function sendCsatEmail(opts: {
 </html>`,
   });
 }
+
+/**
+ * Welcome email — se envía al nuevo usuario al hacer signup.
+ * Incluye el snippet de instalación del widget y CTA al inbox.
+ */
+export async function sendWelcomeEmail(opts: {
+  to: string;
+  name: string;
+  workspaceName: string;
+  apiKey: string;
+  inboxUrl: string;
+}): Promise<void> {
+  const resend = getResend();
+  const SERVER_EMBED = "https://inboxchatserver-production.up.railway.app";
+  const snippet = `&lt;script&gt;\n  window.InboxChat = { workspaceKey: '${opts.apiKey}' };\n&lt;/script&gt;\n&lt;script src="${SERVER_EMBED}/widget.js" defer&gt;&lt;/script&gt;`;
+
+  await resend.emails.send({
+    from: FROM,
+    to: opts.to,
+    subject: `¡Bienvenido a InboxChat, ${opts.name}! 🎉`,
+    html: `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8" /></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f8fafc;margin:0;padding:40px 16px;">
+  <div style="max-width:520px;margin:0 auto;background:white;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;">
+    <div style="background:linear-gradient(135deg,#7c3aed 0%,#4f46e5 100%);padding:28px 32px;">
+      <div style="font-size:13px;color:rgba(255,255,255,0.7);margin-bottom:4px">InboxChat</div>
+      <h1 style="color:white;font-size:20px;font-weight:700;margin:0">¡Hola, ${opts.name}! 👋</h1>
+    </div>
+    <div style="padding:28px 32px;">
+      <p style="color:#374151;font-size:15px;margin:0 0 16px">
+        Ya tenés tu workspace <strong>${opts.workspaceName}</strong> listo.
+      </p>
+      <div style="background:#1e293b;border-radius:10px;padding:16px;margin-bottom:20px;">
+        <pre style="color:#e2e8f0;font-size:12px;margin:0;white-space:pre-wrap;">${snippet}</pre>
+      </div>
+      <p style="color:#64748b;font-size:14px;margin:0 0 20px">
+        Pegalo en el &lt;head&gt; de tu sitio y empezá a recibir chats en tiempo real.
+      </p>
+      <a href="${opts.inboxUrl}"
+         style="display:inline-block;background:linear-gradient(135deg,#7c3aed 0%,#4f46e5 100%);color:white;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px;">
+        Ir al inbox →
+      </a>
+    </div>
+    <div style="padding:16px 32px;border-top:1px solid #e2e8f0;text-align:center;">
+      <p style="color:#94a3b8;font-size:12px;margin:0">
+        14 días de trial · Sin tarjeta ·
+        <a href="https://inboxchat.app" style="color:#7c3aed;text-decoration:none">inboxchat.app</a>
+      </p>
+    </div>
+  </div>
+</body>
+</html>`,
+  });
+}

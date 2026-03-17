@@ -610,7 +610,35 @@
       this.style.height = "auto";
       this.style.height = Math.min(this.scrollHeight, 80) + "px";
       sendBtn.disabled = !this.value.trim();
+
+      // Typing preview — emite el texto parcial al operador (throttle 300ms)
+      if (!state.socket || !state.conversationId) return;
+      var text = this.value;
+      if (text.length === 0) {
+        state.socket.emit("visitor:typing", { conversationId: state.conversationId, text: "", isTyping: false });
+        return;
+      }
+      if (state._typingThrottle) return;
+      state._typingThrottle = setTimeout(function () {
+        state._typingThrottle = null;
+        if (state.socket && state.conversationId) {
+          state.socket.emit("visitor:typing", {
+            conversationId: state.conversationId,
+            text: document.getElementById("ic-input") ? document.getElementById("ic-input").value : "",
+            isTyping: true,
+          });
+        }
+      }, 300);
     });
+
+    // Limpiar preview cuando se envía
+    var _origSendMessage = sendMessage;
+    sendMessage = function (body) {
+      if (state.socket && state.conversationId) {
+        state.socket.emit("visitor:typing", { conversationId: state.conversationId, text: "", isTyping: false });
+      }
+      _origSendMessage(body);
+    };
   }
 
   // ─── Fetch config del servidor ───────────────────────────────────────────
