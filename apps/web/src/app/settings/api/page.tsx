@@ -15,6 +15,7 @@ function getAuthHeaders(): HeadersInit {
 export default function ApiSettingsPage() {
   const router = useRouter();
   const [apiKey, setApiKey] = useState<string | null>(null);
+  const [plan, setPlan] = useState<string>("free");
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [serverUrl, setServerUrl] = useState("");
@@ -24,9 +25,9 @@ export default function ApiSettingsPage() {
     fetch(`${SERVER_URL}/api/workspace/me`, { headers: getAuthHeaders() })
       .then((r) => {
         if (r.status === 401) { router.push("/login"); return null; }
-        return r.json() as Promise<{ workspace: { apiKey: string } }>;
+        return r.json() as Promise<{ workspace: { apiKey: string; plan: string } }>;
       })
-      .then((d) => { if (d) setApiKey(d.workspace.apiKey); })
+      .then((d) => { if (d) { setApiKey(d.workspace.apiKey); setPlan(d.workspace.plan); } })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [router]);
@@ -121,6 +122,23 @@ export default function ApiSettingsPage() {
             Header requerido: <code className="bg-slate-100 px-1 rounded">X-Api-Key: {"{tu api key}"}</code>
           </p>
         </div>
+
+        {/* Upgrade CTA — solo plan free */}
+        {!loading && plan === "free" && (
+          <div className="rounded-2xl border-2 border-violet-200 bg-gradient-to-br from-violet-50 to-white p-6 mb-4 text-center">
+            <p className="text-sm font-semibold text-violet-800 mb-1">🔒 La API REST requiere el plan Pro</p>
+            <p className="text-xs text-slate-500 mb-3">
+              Integrá InboxChat con Zapier, Make o tu propio backend por $29/mes.
+            </p>
+            <a
+              href="/pricing"
+              id="api-upgrade-cta"
+              className="inline-block bg-violet-600 text-white text-xs font-semibold px-5 py-2 rounded-xl hover:bg-violet-700 transition-colors"
+            >
+              Ver planes →
+            </a>
+          </div>
+        )}
 
         {/* Quickstart curl */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm mb-4 overflow-hidden">
