@@ -28,7 +28,7 @@ interface InboxLayoutProps {
 }
 
 export function InboxLayout({ workspaceId }: InboxLayoutProps) {
-  const { socketRef, typingMapRef } = useSocket(workspaceId);
+  const { socketRef, typingMapRef, previewMapRef } = useSocket(workspaceId);
   const {
     setConversations,
     appendConversations,
@@ -306,6 +306,7 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
           <ChatPanel
             socketRef={socketRef}
             typingMapRef={typingMapRef}
+            previewMapRef={previewMapRef}
             onToggleContact={() => setShowContactPanel((v) => !v)}
             showContactPanel={showContactPanel}
           />

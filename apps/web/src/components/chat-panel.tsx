@@ -23,6 +23,7 @@ type AppSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 interface ChatPanelProps {
   socketRef: RefObject<AppSocket | null>;
   typingMapRef: MutableRefObject<Map<string, { contact: boolean; operator: boolean }>>;
+  previewMapRef?: MutableRefObject<Map<string, string>>;
   onToggleContact?: () => void;
   showContactPanel?: boolean;
 }
@@ -32,7 +33,7 @@ interface ChatPanelProps {
  * Muestra el historial de mensajes de la conversación activa
  * y el input para que el operador responda.
  */
-export function ChatPanel({ socketRef, typingMapRef, onToggleContact, showContactPanel }: ChatPanelProps) {
+export function ChatPanel({ socketRef, typingMapRef, previewMapRef, onToggleContact, showContactPanel }: ChatPanelProps) {
   const activeConversation = useInboxStore(selectActiveConversation);
   const messages = useInboxStore((s) => s.messages);
   const isLoadingMessages = useInboxStore((s) => s.isLoadingMessages);
@@ -559,14 +560,29 @@ export function ChatPanel({ socketRef, typingMapRef, onToggleContact, showContac
             );
           })
         )}
-        {/* Indicador de typing — el operador ve "el visitante está escribiendo..." */}
+        {/* Indicador de typing — el operador ve lo que escribe el visitante */}
         {activeConversation && typingMapRef.current.get(activeConversation.id)?.contact && (
           <div className="flex items-end gap-2 justify-start px-1">
             <div className="w-6 h-6 rounded-full bg-slate-200 flex-shrink-0" />
-            <div className="bg-slate-100 rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:0ms]" />
-              <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:150ms]" />
-              <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:300ms]" />
+            <div className="bg-slate-100 rounded-2xl rounded-bl-sm px-4 py-3 max-w-[75%]">
+              {previewMapRef?.current.get(activeConversation.id) ? (
+                // Typing preview: texto parcial del visitante (ghost text)
+                <span className="text-sm text-slate-400 italic">
+                  {previewMapRef.current.get(activeConversation.id)}
+                  <span className="ml-1 inline-flex gap-0.5">
+                    <span className="w-1 h-1 rounded-full bg-slate-400 animate-bounce [animation-delay:0ms]" />
+                    <span className="w-1 h-1 rounded-full bg-slate-400 animate-bounce [animation-delay:150ms]" />
+                    <span className="w-1 h-1 rounded-full bg-slate-400 animate-bounce [animation-delay:300ms]" />
+                  </span>
+                </span>
+              ) : (
+                // Fallback: 3 puntitos animados
+                <span className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:0ms]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:150ms]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:300ms]" />
+                </span>
+              )}
             </div>
           </div>
         )}

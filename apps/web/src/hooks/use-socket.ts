@@ -29,6 +29,8 @@ export function useSocket(workspaceId: string) {
   // Map de conversationId → { contact: bool, operator: bool }
   // Usamos useRef+forceUpdate para no re-renderizar todo el inbox en cada keystroke
   const typingMapRef = useRef<Map<string, { contact: boolean; operator: boolean }>>(new Map());
+  // Map de conversationId → texto parcial que escribe el visitante (typing preview)
+  const previewMapRef = useRef<Map<string, string>>(new Map());
   const [, forceUpdate] = useState(0);
   const { setConnected, addConversation, addMessage, updateConversation } =
     useInboxStore();
@@ -165,6 +167,20 @@ export function useSocket(workspaceId: string) {
     socket.on("typing:update", ({ conversationId, isTyping, sender }) => {
       const current = typingMapRef.current.get(conversationId) ?? { contact: false, operator: false };
       typingMapRef.current.set(conversationId, { ...current, [sender]: isTyping });
+      // Limpiar preview cuando el visitante termina de escribir
+      if (!isTyping && sender === "contact") {
+        previewMapRef.current.delete(conversationId);
+      }
+      forceUpdate((n: number) => n + 1);
+    });
+
+    // Typing preview — el visitante escribió texto parcial, mostrarlo al operador
+    socket.on("typing:preview", ({ conversationId, text }) => {
+      if (text) {
+        previewMapRef.current.set(conversationId, text);
+      } else {
+        previewMapRef.current.delete(conversationId);
+      }
       forceUpdate((n: number) => n + 1);
     });
 
@@ -179,11 +195,12 @@ export function useSocket(workspaceId: string) {
       socket.off("conversation:closed");
       socket.off("conversation:assigned");
       socket.off("typing:update");
+      socket.off("typing:preview");
       socket.disconnect();
       socketRef.current = null;
       setConnected(false);
     };
   }, [workspaceId, setConnected, addConversation, addMessage, updateConversation]);
 
-  return { socketRef, typingMapRef };
+  return { socketRef, typingMapRef, previewMapRef };
 }
