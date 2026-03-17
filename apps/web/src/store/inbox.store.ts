@@ -1,20 +1,7 @@
 import { create } from "zustand";
 import type { Conversation, Message } from "@inboxchat/shared";
 
-/**
- * Store del inbox.
- *
- * Responsabilidades:
- * - Lista de conversaciones (sidebar izquierdo)
- * - Conversación activa seleccionada
- * - Mensajes de la conversación activa
- * - Estado de conexión del Socket.io
- *
- * Por qué Zustand y no Context:
- * Context re-renderiza todo el árbol cuando cambia.
- * Zustand con selectores re-renderiza solo los componentes suscritos al slice que cambió.
- * En un chat, los mensajes llegan constantemente — necesitamos granularidad.
- */
+export type ConversationTab = "open" | "closed";
 
 interface InboxState {
   // Conexión
@@ -23,6 +10,9 @@ interface InboxState {
   // Conversaciones
   conversations: Conversation[];
   activeConversationId: string | null;
+  conversationTab: ConversationTab;
+  hasMoreConversations: boolean;
+  nextCursor: string | null;
 
   // Mensajes (solo los de la conversación activa en memoria)
   messages: Message[];
@@ -31,6 +21,7 @@ interface InboxState {
   // Acciones
   setConnected: (connected: boolean) => void;
   setConversations: (conversations: Conversation[]) => void;
+  appendConversations: (conversations: Conversation[], hasMore: boolean, nextCursor: string | null) => void;
   addConversation: (conversation: Conversation) => void;
   updateConversation: (conversationId: string, update: Partial<Conversation>) => void;
   setActiveConversation: (conversationId: string | null) => void;
@@ -38,22 +29,32 @@ interface InboxState {
   addMessage: (message: Message) => void;
   markConversationRead: (conversationId: string) => void;
   setLoadingMessages: (loading: boolean) => void;
+  setConversationTab: (tab: ConversationTab) => void;
 }
 
 export const useInboxStore = create<InboxState>()((set) => ({
   isConnected: false,
   conversations: [],
   activeConversationId: null,
+  conversationTab: "open",
+  hasMoreConversations: false,
+  nextCursor: null,
   messages: [],
   isLoadingMessages: false,
 
   setConnected: (isConnected) => set({ isConnected }),
 
-  setConversations: (conversations) => set({ conversations }),
+  setConversations: (conversations) => set({ conversations, hasMoreConversations: false, nextCursor: null }),
+
+  appendConversations: (conversations, hasMore, nextCursor) =>
+    set((state) => ({
+      conversations: [...state.conversations, ...conversations.filter((c) => !state.conversations.some((e) => e.id === c.id))],
+      hasMoreConversations: hasMore,
+      nextCursor,
+    })),
 
   addConversation: (conversation) =>
     set((state) => ({
-      // Evitar duplicados si llega el mismo evento DOS veces
       conversations: state.conversations.some((c) => c.id === conversation.id)
         ? state.conversations
         : [conversation, ...state.conversations],
@@ -86,6 +87,9 @@ export const useInboxStore = create<InboxState>()((set) => ({
     })),
 
   setLoadingMessages: (isLoadingMessages) => set({ isLoadingMessages }),
+
+  setConversationTab: (conversationTab) =>
+    set({ conversationTab, conversations: [], hasMoreConversations: false, nextCursor: null }),
 }));
 
 // Selectores memoizados para evitar re-renders innecesarios

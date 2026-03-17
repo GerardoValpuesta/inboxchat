@@ -44,6 +44,12 @@ export function registerSocketHandlers(io: AppServer, db: Database) {
   // Si el cliente se cae sin enviar typing:stop, el indicador desaparece igual a los 5s
   const typingTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
+  // Rate limit por socket para message:send
+  // { socketId → { count, resetAt } }
+  const msgRateMap = new Map<string, { count: number; resetAt: number }>();
+  const MSG_LIMIT = 10;   // max mensajes
+  const MSG_WINDOW = 10_000; // por ventana de 10 segundos
+
   io.on("connection", (socket: AppSocket) => {
     // ─── conversation:start ───────────────────────────────────────────────
     socket.on("conversation:start", async (payload, callback) => {
@@ -177,6 +183,22 @@ export function registerSocketHandlers(io: AppServer, db: Database) {
         if (!body || body.length > 5000) {
           callback({ ok: false, error: "Mensaje inválido" });
           return;
+        }
+
+        // Rate limit solo para visitantes (no operadores) — 10 msgs / 10s
+        if (!socket.data.isOperator) {
+          const now = Date.now();
+          const bucket = msgRateMap.get(socket.id) ?? { count: 0, resetAt: now + MSG_WINDOW };
+          if (now > bucket.resetAt) {
+            bucket.count = 0;
+            bucket.resetAt = now + MSG_WINDOW;
+          }
+          bucket.count++;
+          msgRateMap.set(socket.id, bucket);
+          if (bucket.count > MSG_LIMIT) {
+            callback({ ok: false, error: "Demasiados mensajes. Esperá unos segundos." });
+            return;
+          }
         }
 
         // 1. Determinar sender. Las notas internas solo las puede crear el operador.

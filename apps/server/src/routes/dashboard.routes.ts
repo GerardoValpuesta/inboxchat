@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import type { Database } from "../db/client.js";
 import {
   listOpenConversations,
+  listConversations,
   getConversationWithContact,
   getConversationHistory,
   markConversationRead,
@@ -49,33 +50,44 @@ export async function dashboardRoutes(
   { db, ioRef }: { db: Database; ioRef: { current: import("socket.io").Server | null } }
 ) {
   // ─── GET /api/conversations ───────────────────────────────────────────────
-  app.get<{ Querystring: { tag?: string } }>("/api/conversations", async (request, reply) => {
-    const workspaceId = await resolveWorkspaceId(db, request.headers as Record<string, string | undefined>);
+  app.get<{ Querystring: { tag?: string; status?: string; cursor?: string; limit?: string } }>(
+    "/api/conversations",
+    async (request, reply) => {
+      const workspaceId = await resolveWorkspaceId(db, request.headers as Record<string, string | undefined>);
+      if (!workspaceId) return reply.status(401).send({ error: "No autorizado" });
 
-    if (!workspaceId) {
-      return reply.status(401).send({ error: "No autorizado" });
+      const tagId = request.query.tag;
+      const status = (["open", "closed", "all"].includes(request.query.status ?? "") ? request.query.status : "open") as "open" | "closed" | "all";
+      const cursor = request.query.cursor;
+      const limit = Math.min(Number(request.query.limit ?? 50), 100);
+
+      let conversations = await listConversations(db, workspaceId, {
+        status,
+        limit: limit + 1,
+        ...(cursor ? { cursor } : {}),
+      });
+
+      // Filtrar por tag si se especificó
+      if (tagId) {
+        const taggedIds = await db<{ conversation_id: string }[]>`
+          SELECT ct.conversation_id
+          FROM conversation_tags ct
+          JOIN tags t ON t.id = ct.tag_id
+          WHERE ct.tag_id = ${tagId}
+            AND t.workspace_id = ${workspaceId}
+        `;
+        const ids = new Set(taggedIds.map((r) => r.conversation_id));
+        conversations = conversations.filter((c) => ids.has(c.id));
+      }
+
+      // Paginación — pedimos limit+1 para saber si hay más
+      const hasMore = conversations.length > limit;
+      if (hasMore) conversations.pop();
+      const nextCursor = hasMore && conversations.length > 0 ? conversations[conversations.length - 1]!.updatedAt : null;
+
+      return reply.send({ conversations, hasMore, nextCursor });
     }
-
-    const tagId = request.query.tag;
-
-    if (tagId) {
-      // Filtrar conversaciones que tienen este tag asignado
-      const taggedIds = await db<{ conversation_id: string }[]>`
-        SELECT ct.conversation_id
-        FROM conversation_tags ct
-        JOIN tags t ON t.id = ct.tag_id
-        WHERE ct.tag_id = ${tagId}
-          AND t.workspace_id = ${workspaceId}
-      `;
-      if (taggedIds.length === 0) return reply.send({ conversations: [] });
-      const ids = taggedIds.map((r) => r.conversation_id);
-      const conversations = await listOpenConversations(db, workspaceId);
-      return reply.send({ conversations: conversations.filter((c) => ids.includes(c.id)) });
-    }
-
-    const conversations = await listOpenConversations(db, workspaceId);
-    return { conversations };
-  });
+  );
 
   // ─── PATCH /api/conversations/:id/status — abrir/cerrar conversación ─────────
   app.patch<{ Params: { id: string }; Body: { status: "open" | "closed" } }>(

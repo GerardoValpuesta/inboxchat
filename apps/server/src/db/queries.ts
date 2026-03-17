@@ -74,9 +74,15 @@ export async function getConversationWithContact(
 export async function listConversations(
   db: Database,
   workspaceId: string,
-  limit = 50
+  { status = "open", limit = 50, cursor }: { status?: "open" | "closed" | "all"; limit?: number; cursor?: string } = {}
 ): Promise<Array<Conversation & { contact: Contact; lastMessage: Message | null }>> {
-  // postgres.js aplana los alias con punto, por eso usamos subqueries json
+  const statusFilter = status === "all"
+    ? db``
+    : db`AND c.status = ${status}`;
+  const cursorFilter = cursor
+    ? db`AND c.updated_at < ${cursor}`
+    : db``;
+
   const rows = await db<Array<{
     id: string;
     workspaceId: string;
@@ -84,6 +90,7 @@ export async function listConversations(
     unreadCount: number;
     createdAt: string;
     updatedAt: string;
+    assignedTo: string | null;
     contact: Contact;
     lastMessage: Message | null;
   }>>`
@@ -94,6 +101,7 @@ export async function listConversations(
       c.unread_count,
       c.created_at,
       c.updated_at,
+      c.assigned_to,
       (
         SELECT json_build_object(
           'id', ct.id,
@@ -121,14 +129,17 @@ export async function listConversations(
       ) AS "lastMessage"
     FROM conversations c
     WHERE c.workspace_id = ${workspaceId}
+    ${statusFilter}
+    ${cursorFilter}
     ORDER BY c.updated_at DESC
     LIMIT ${limit}
   `;
   return rows as unknown as Array<Conversation & { contact: Contact; lastMessage: Message | null }>;
 }
 
-// Alias para backwards compat (dashboard.routes.ts)
-export const listOpenConversations = listConversations;
+// Alias para backwards compat
+export const listOpenConversations = (db: Database, workspaceId: string) =>
+  listConversations(db, workspaceId, { status: "open" });
 
 export async function markConversationRead(db: Database, conversationId: string) {
   await db`

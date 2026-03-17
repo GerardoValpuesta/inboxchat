@@ -31,11 +31,16 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
   const { socketRef, typingMapRef } = useSocket(workspaceId);
   const {
     setConversations,
+    appendConversations,
     setMessages,
     setLoadingMessages,
     setActiveConversation,
+    setConversationTab,
     activeConversationId,
+    conversationTab,
     conversations,
+    hasMoreConversations,
+    nextCursor,
   } = useInboxStore();
 
   const [showContactPanel, setShowContactPanel] = useState(false);
@@ -89,13 +94,17 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
   // Polling de conversaciones — carga inicial + refresca cada 5s.
   useEffect(() => {
     const loadConversations = () => {
-      fetch(`${SERVER_URL}/api/conversations`, {
+      fetch(`${SERVER_URL}/api/conversations?status=${conversationTab}`, {
         headers: getAuthHeaders(),
         cache: "no-store",
       })
         .then((r) => r.json())
-        .then((data: { conversations: Conversation[] }) => {
+        .then((data: { conversations: Conversation[]; hasMore: boolean; nextCursor: string | null }) => {
           setConversations(data.conversations ?? []);
+          if (data.hasMore !== undefined) {
+            // Actualizar hasMore y nextCursor via appendConversations reset
+            appendConversations([], data.hasMore, data.nextCursor ?? null);
+          }
         })
         .catch((err: unknown) => {
           console.error("[inbox] poll error:", err);
@@ -103,9 +112,13 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
     };
 
     loadConversations();
-    const interval = setInterval(loadConversations, 5_000);
-    return () => clearInterval(interval);
-  }, [setConversations]);
+    // Solo hacer polling en tab de abiertas (las cerradas no cambian constantemente)
+    if (conversationTab === "open") {
+      const interval = setInterval(loadConversations, 5_000);
+      return () => clearInterval(interval);
+    }
+    return undefined;
+  }, [setConversations, appendConversations, conversationTab]);
 
   // ── SLA Alert: notificar si una conv lleva más del threshold sin respuesta ──
   useEffect(() => {
@@ -224,7 +237,49 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
               apiKey={billingInfo.apiKey}
             />
           )}
+          {/* Tabs: Abiertas / Resueltas */}
+          <div className="flex border-b border-slate-200 bg-white px-3 pt-2 gap-1 flex-shrink-0">
+            {(["open", "closed"] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setConversationTab(tab)}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-t-lg transition-colors ${
+                  conversationTab === tab
+                    ? "text-violet-700 border-b-2 border-violet-600 bg-violet-50"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                {tab === "open" ? "Abiertas" : "Resueltas"}
+                {tab === "open" && conversations.filter((c) => c.status === "open").length > 0 && (
+                  <span className="ml-1.5 bg-violet-100 text-violet-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                    {conversations.filter((c) => c.status === "open").length}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
           <ConversationList searchInputRef={searchInputRef} />
+          {/* Cargar más conversaciones */}
+          {hasMoreConversations && nextCursor && (
+            <div className="px-3 py-2 flex-shrink-0 border-t border-slate-200 bg-white">
+              <button
+                onClick={() => {
+                  fetch(`${SERVER_URL}/api/conversations?status=${conversationTab}&cursor=${encodeURIComponent(nextCursor)}`, {
+                    headers: getAuthHeaders(),
+                    cache: "no-store",
+                  })
+                    .then((r) => r.json())
+                    .then((data: { conversations: Conversation[]; hasMore: boolean; nextCursor: string | null }) => {
+                      appendConversations(data.conversations ?? [], data.hasMore, data.nextCursor ?? null);
+                    })
+                    .catch(console.error);
+                }}
+                className="w-full text-xs text-slate-500 hover:text-violet-600 font-medium py-1 transition-colors"
+              >
+                Cargar más conversaciones ↓
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Chat panel — columna 2 */}
