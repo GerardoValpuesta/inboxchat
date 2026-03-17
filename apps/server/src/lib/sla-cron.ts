@@ -20,6 +20,21 @@ export async function startSlaCron(db: Database): Promise<void> {
     return;
   }
 
+  // Verificar que la columna sla_alert_sent_at existe (requiere migración 014).
+  // Si no existe, logear una sola vez y salir en vez de romperse cada 2 minutos.
+  try {
+    await db`SELECT sla_alert_sent_at FROM conversations LIMIT 0`;
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes("sla_alert_sent_at") || msg.includes("column") || msg.includes("UNDEFINED_VALUE")) {
+      console.warn(
+        "[SLA Cron] Columna sla_alert_sent_at no encontrada. " +
+        "Corrí la migración 014_sla_alert.sql en Supabase SQL Editor para activar las alertas SLA."
+      );
+      return;
+    }
+  }
+
   async function checkSla() {
     try {
       // Conversaciones abiertas donde el último mensaje es del visitante
