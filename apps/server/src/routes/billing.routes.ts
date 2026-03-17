@@ -76,17 +76,28 @@ export async function billingRoutes(
     if (!billing) return reply.status(404).send({ error: "Workspace no encontrado" });
 
     const trialEndsAt = billing.trial_ends_at ? new Date(billing.trial_ends_at) : null;
-    const trialDaysLeft = trialEndsAt
-      ? Math.max(0, Math.ceil((trialEndsAt.getTime() - Date.now()) / 86_400_000))
+
+    // Si el plan es 'trial' pero trial_ends_at es NULL (migración vieja / bug de datos),
+    // asumimos 14 días desde ahora para no bloquear al usuario de inmediato.
+    const effectiveTrialEndsAt = trialEndsAt
+      ?? (billing.plan === "trial" ? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000) : null);
+
+    const trialDaysLeft = effectiveTrialEndsAt
+      ? Math.max(0, Math.ceil((effectiveTrialEndsAt.getTime() - Date.now()) / 86_400_000))
       : null;
+
+    // isActive = Pro pagado ✅  ó  trial con días restantes ✅
+    const isActive =
+      billing.plan === "pro" ||
+      (billing.plan === "trial" && trialDaysLeft !== null && trialDaysLeft > 0);
 
     return reply.send({
       plan: billing.plan,
-      trialEndsAt: billing.trial_ends_at,
+      trialEndsAt: effectiveTrialEndsAt?.toISOString() ?? null,
       trialDaysLeft,
       conversationCount: billing.conversation_count,
       stripeSubscriptionStatus: billing.stripe_subscription_status,
-      isActive: billing.plan === "pro",
+      isActive,
     });
   });
 
