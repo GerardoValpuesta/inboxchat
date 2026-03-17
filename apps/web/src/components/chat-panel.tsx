@@ -43,6 +43,10 @@ export function ChatPanel({ socketRef, typingMapRef, onToggleContact, showContac
   const [isSending, setIsSending] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [isNoteMode, setIsNoteMode] = useState(false);
+  // Búsqueda Ctrl+F dentro de la conversación
+  const [showMsgSearch, setShowMsgSearch] = useState(false);
+  const [msgSearchQuery, setMsgSearchQuery] = useState("");
+  const msgSearchRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   // Debounce ref para el typing:stop (1.5s sin escribir = stop)
   const typingStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -108,6 +112,28 @@ export function ChatPanel({ socketRef, typingMapRef, onToggleContact, showContac
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Ctrl+F / Cmd+F — usar el buscador del chat en vez del del browser
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "f" && activeConversation) {
+        e.preventDefault();
+        setShowMsgSearch((v) => {
+          if (!v) {
+            setTimeout(() => msgSearchRef.current?.focus(), 50);
+            return true;
+          }
+          return false;
+        });
+      }
+      if (e.key === "Escape") {
+        setShowMsgSearch(false);
+        setMsgSearchQuery("");
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [activeConversation]);
 
   async function handleCloseConversation() {
     if (!activeConversation || isClosing) return;
@@ -409,6 +435,33 @@ export function ChatPanel({ socketRef, typingMapRef, onToggleContact, showContac
           </div>
         </div>
       </header>
+
+      {/* Barra de búsqueda Ctrl+F */}
+      {showMsgSearch && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border-b border-amber-200 flex-shrink-0">
+          <svg className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            ref={msgSearchRef}
+            type="text"
+            value={msgSearchQuery}
+            onChange={(e) => setMsgSearchQuery(e.target.value)}
+            placeholder="Buscar en la conversación..."
+            className="flex-1 text-xs bg-transparent border-none outline-none text-slate-700 placeholder:text-amber-400"
+            onKeyDown={(e) => { if (e.key === "Escape") { setShowMsgSearch(false); setMsgSearchQuery(""); } }}
+          />
+          {msgSearchQuery && (
+            <span className="text-[10px] text-amber-600 font-medium bg-amber-100 px-1.5 py-0.5 rounded-full">
+              {messages.filter((m) => !m.body.startsWith("__ic_ctx__") && m.body.toLowerCase().includes(msgSearchQuery.toLowerCase())).length} resultados
+            </span>
+          )}
+          <button
+            onClick={() => { setShowMsgSearch(false); setMsgSearchQuery(""); }}
+            className="text-amber-400 hover:text-amber-600 transition-colors text-xs font-bold ml-1"
+          >✕</button>
+        </div>
+      )}
 
       {/* Area de mensajes */}
       <div className="flex-1 overflow-y-auto px-6 py-4 flex flex-col gap-3">

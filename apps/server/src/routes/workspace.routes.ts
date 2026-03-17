@@ -41,9 +41,13 @@ export async function workspaceRoutes(
       api_key: string;
       plan: string;
       sla_minutes: number | null;
+      business_hours: unknown | null;
+      timezone: string | null;
     }[]>`
       SELECT id, name, owner_email, api_key, plan,
-             COALESCE(sla_minutes, 10) AS sla_minutes
+             COALESCE(sla_minutes, 10) AS sla_minutes,
+             business_hours,
+             COALESCE(timezone, 'America/Mexico_City') AS timezone
       FROM workspaces
       WHERE id = ${workspaceId}
       LIMIT 1
@@ -59,12 +63,14 @@ export async function workspaceRoutes(
         apiKey: workspace.api_key,
         plan: workspace.plan,
         slaMinutes: workspace.sla_minutes ?? 10,
+        businessHours: workspace.business_hours ?? null,
+        timezone: workspace.timezone ?? 'America/Mexico_City',
       },
     });
   });
 
   // PATCH /api/workspace/me — actualizar configuración
-  app.patch<{ Body: { slaMinutes?: number } }>(
+  app.patch<{ Body: { slaMinutes?: number; businessHours?: unknown; timezone?: string } }>(
     "/api/workspace/me",
     async (request, reply) => {
       const workspaceId = await resolveWorkspaceId(
@@ -72,10 +78,17 @@ export async function workspaceRoutes(
       );
       if (!workspaceId) return reply.status(401).send({ error: "No autenticado" });
 
-      const { slaMinutes } = request.body;
+      const { slaMinutes, businessHours, timezone } = request.body;
       if (slaMinutes !== undefined) {
         const mins = Math.max(1, Math.min(Number(slaMinutes), 480));
         await db`UPDATE workspaces SET sla_minutes = ${mins} WHERE id = ${workspaceId}`;
+      }
+      if (businessHours !== undefined) {
+        const bh = JSON.stringify(businessHours);
+        await db`UPDATE workspaces SET business_hours = ${bh}::jsonb WHERE id = ${workspaceId}`;
+      }
+      if (timezone !== undefined && typeof timezone === 'string') {
+        await db`UPDATE workspaces SET timezone = ${timezone} WHERE id = ${workspaceId}`;
       }
 
       return reply.send({ ok: true });

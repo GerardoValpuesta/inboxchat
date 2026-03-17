@@ -17,6 +17,7 @@ import {
   getConversationWithContact,
 } from "../db/queries.js";
 import { sendNewConversationEmail } from "../lib/email.js";
+import { sendWebhookEvent } from "../routes/webhooks.routes.js";
 
 
 type AppServer = Server<
@@ -258,7 +259,17 @@ export function registerSocketHandlers(io: AppServer, db: Database) {
         // 5. Callback al cliente
         callback({ ok: true, message });
 
-        // 6. Notificación del workspace (best-effort)
+        // 6. Webhook saliente — fire-and-forget para message.created (no notas)
+        if (sender !== "note" && socket.data.workspaceId) {
+          void sendWebhookEvent(db, socket.data.workspaceId, "message.created", {
+            message_id: message.id,
+            conversation_id: conversationId,
+            body: message.body,
+            sender,
+          });
+        }
+
+        // 7. Notificación del workspace (best-effort)
         try {
           const workspaceId = socket.data.workspaceId;
           if (workspaceId) {
