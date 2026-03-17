@@ -51,6 +51,11 @@ export function registerSocketHandlers(io: AppServer, db: Database) {
   const MSG_LIMIT = 10;   // max mensajes
   const MSG_WINDOW = 10_000; // por ventana de 10 segundos
 
+  // Dedup de emails al operador — solo se envía el primero por conversación.
+  // Se limpia cada hora para no crecer indefinidamente.
+  const emailNotifiedConvs = new Set<string>();
+  setInterval(() => emailNotifiedConvs.clear(), 60 * 60 * 1000);
+
   io.on("connection", (socket: AppSocket) => {
     // ─── conversation:start ───────────────────────────────────────────────
     socket.on("conversation:start", async (payload, callback) => {
@@ -225,6 +230,8 @@ export function registerSocketHandlers(io: AppServer, db: Database) {
               const operatorOnline = operatorRoom && operatorRoom.size > 0;
 
               if (!operatorOnline) {
+                // Dedup: solo notificar una vez por conversación (Set se limpia cada hora)
+                if (!emailNotifiedConvs.has(conversationId)) {
                 const [ws] = await db<{ owner_email: string; name: string }[]>`
                   SELECT owner_email, name FROM workspaces WHERE id = ${workspaceId} LIMIT 1
                 `;
@@ -244,7 +251,9 @@ export function registerSocketHandlers(io: AppServer, db: Database) {
                   };
                   if (conv?.contact_name) emailOpts.visitorName = conv.contact_name;
                   void sendNewConversationEmail(emailOpts);
+                  emailNotifiedConvs.add(conversationId);
                 }
+                } // end dedup check
               }
             }
           } catch (emailErr) {

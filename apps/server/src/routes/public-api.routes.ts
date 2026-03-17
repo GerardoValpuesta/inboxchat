@@ -31,6 +31,24 @@ export async function publicApiRoutes(app: FastifyInstance, { db }: { db: Databa
     });
   }
 
+  // ─── GET /api/v1 — API Reference ────────────────────────────────────────────
+  app.get("/api/v1", async (_request, reply) => {
+    return reply.send({
+      name: "InboxChat Public API",
+      version: "1",
+      baseUrl: "/api/v1",
+      auth: "Header: X-Api-Key: <workspace api key>  (find it in Settings → API)",
+      endpoints: [
+        { method: "GET",   path: "/api/v1/conversations",                  description: "List conversations. ?status=open|closed &limit=50 &offset=0" },
+        { method: "POST",  path: "/api/v1/conversations",                  description: "Create a conversation + contact" },
+        { method: "PATCH", path: "/api/v1/conversations/:id/status",       description: "Close or reopen a conversation" },
+        { method: "GET",   path: "/api/v1/conversations/:id/messages",     description: "Get messages for a conversation" },
+        { method: "POST",  path: "/api/v1/conversations/:id/messages",     description: "Send a message as operator" },
+        { method: "GET",   path: "/api/v1/contacts",                       description: "List contacts. ?search=email|name &limit=50 &offset=0" },
+      ],
+    });
+  });
+
   // ─── GET /api/v1/conversations ───────────────────────────────────────────────
   app.get<{
     Querystring: { status?: "open" | "closed"; limit?: string; offset?: string }
@@ -167,5 +185,109 @@ export async function publicApiRoutes(app: FastifyInstance, { db }: { db: Databa
     if (!result.length) return reply.status(404).send({ error: "Conversation not found" });
 
     return reply.send({ ok: true, status });
+  });
+
+  // ─── GET /api/v1/contacts ─────────────────────────────────────────────────
+  app.get<{
+    Querystring: { search?: string; limit?: string; offset?: string }
+  }>("/api/v1/contacts", async (request, reply) => {
+    const workspaceId = await resolveByApiKey(request.headers as Record<string, string | undefined>);
+    if (!workspaceId) return unauthorized(reply);
+
+    const { search } = request.query;
+    const limit = Math.min(Number(request.query.limit ?? 50), 100);
+    const offset = Number(request.query.offset ?? 0);
+
+    const rows = await db<{
+      id: string; name: string | null; email: string | null;
+      created_at: string; conversation_count: number;
+    }[]>`
+      SELECT
+        ct.id, ct.name, ct.email, ct.created_at,
+        COUNT(cv.id)::int AS conversation_count
+      FROM contacts ct
+      LEFT JOIN conversations cv ON cv.contact_id = ct.id
+      WHERE ct.workspace_id = ${workspaceId}
+        ${search ? db`AND (ct.name ILIKE ${'%' + search + '%'} OR ct.email ILIKE ${'%' + search + '%'})` : db``}
+      GROUP BY ct.id
+      ORDER BY ct.created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+
+    return reply.send({
+      contacts: rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        email: r.email,
+        createdAt: r.created_at,
+        conversationCount: r.conversation_count,
+      })),
+      meta: { limit, offset },
+    });
+  });
+
+  // ─── POST /api/v1/conversations ──────────────────────────────────────────
+  // Crea una conversación (+ upsert contact). Útil para integraciones Zapier/Make.
+  app.post<{
+    Body: {
+      contact: { name?: string; email?: string; externalId?: string };
+      message?: string;
+    };
+  }>("/api/v1/conversations", async (request, reply) => {
+    const workspaceId = await resolveByApiKey(request.headers as Record<string, string | undefined>);
+    if (!workspaceId) return unauthorized(reply);
+
+    const { contact, message } = request.body ?? {};
+    if (!contact) return reply.status(400).send({ error: "contact is required" });
+
+    // Upsert contact
+    const [upsertedContact] = await db<{ id: string; name: string | null; email: string | null }[]>`
+      INSERT INTO contacts (workspace_id, name, email, external_id)
+      VALUES (
+        ${workspaceId},
+        ${contact.name ?? null},
+        ${contact.email ?? null},
+        ${contact.externalId ?? null}
+      )
+      ON CONFLICT (workspace_id, external_id) WHERE external_id IS NOT NULL
+        DO UPDATE SET
+          name  = COALESCE(EXCLUDED.name,  contacts.name),
+          email = COALESCE(EXCLUDED.email, contacts.email)
+      RETURNING id, name, email
+    `;
+    if (!upsertedContact) return reply.status(500).send({ error: "Failed to create contact" });
+
+    // Crear conversación
+    const [conv] = await db<{ id: string; created_at: string }[]>`
+      INSERT INTO conversations (workspace_id, contact_id, status)
+      VALUES (${workspaceId}, ${upsertedContact.id}, 'open')
+      RETURNING id, created_at
+    `;
+    if (!conv) return reply.status(500).send({ error: "Failed to create conversation" });
+
+    // Mensaje inicial opcional (como operador)
+    let firstMessage: { id: string; body: string } | null = null;
+    if (message?.trim()) {
+      const [msg] = await db<{ id: string }[]>`
+        INSERT INTO messages (conversation_id, body, sender)
+        VALUES (${conv.id}, ${message.trim()}, 'operator')
+        RETURNING id
+      `;
+      if (msg) firstMessage = { id: msg.id, body: message.trim() };
+    }
+
+    return reply.status(201).send({
+      conversation: {
+        id: conv.id,
+        status: "open",
+        createdAt: conv.created_at,
+        contact: {
+          id: upsertedContact.id,
+          name: upsertedContact.name,
+          email: upsertedContact.email,
+        },
+      },
+      ...(firstMessage ? { message: firstMessage } : {}),
+    });
   });
 }
