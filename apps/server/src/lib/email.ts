@@ -134,19 +134,26 @@ export async function sendSlaAlert(opts: {
 }
 /**
  * CSAT — se envía al visitante/contacto cuando el operador cierra la conversación.
- * Incluye 5 estrellas clickeables (sin backend real por ahora — preparado para implementación futura).
+ * Incluye 5 emojis clickeables que llevan a GET /api/csat?id=X&rating=N
  */
 export async function sendCsatEmail(opts: {
   to: string;
   workspaceName: string;
   visitorName?: string;
   conversationId: string;
+  serverUrl?: string;
 }): Promise<void> {
   const resend = getResend();
   const visitor = opts.visitorName ? `, ${opts.visitorName}` : "";
+  const base = opts.serverUrl ??
+    process.env["SERVER_URL"] ??
+    process.env["RAILWAY_PUBLIC_DOMAIN"] ??
+    "https://inboxchatserver-production.up.railway.app";
   const stars = [1, 2, 3, 4, 5].map((n) => {
-    const emoji = n <= 2 ? "😞" : n === 3 ? "😐" : n === 4 ? "😊" : "😍";
-    return `<a href="mailto:?subject=CSAT+${n}" style="text-decoration:none;font-size:28px;margin:0 4px;filter:grayscale(0.2)" title="${n} estrella${n > 1 ? "s" : ""}">${emoji}</a>`;
+    const emoji = n <= 2 ? "😞" : n === 3 ? "😐" : n === 4 ? "😊" : "🤩";
+    const url = `${base}/api/csat?id=${encodeURIComponent(opts.conversationId)}&rating=${n}`;
+    return `<a href="${url}" style="text-decoration:none;font-size:32px;margin:0 6px;display:inline-block;transition:transform .15s" title="${n} estrella${n > 1 ? "s" : ""}"
+      onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'">${emoji}</a>`;
   }).join("");
 
   await resend.emails.send({

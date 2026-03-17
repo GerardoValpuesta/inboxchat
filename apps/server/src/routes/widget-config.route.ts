@@ -24,8 +24,11 @@ export async function widgetConfigRoute(
         name: string;
         plan: string;
         trial_ends_at: string | null;
+        business_hours: unknown | null;
+        timezone: string | null;
       }[]>`
-        SELECT widget_title, widget_color, widget_welcome_message, widget_gdpr_enabled, name, plan, trial_ends_at
+        SELECT widget_title, widget_color, widget_welcome_message, widget_gdpr_enabled, name, plan, trial_ends_at,
+               business_hours, COALESCE(timezone, 'UTC') AS timezone
         FROM workspaces
         WHERE api_key = ${key}
         LIMIT 1
@@ -49,6 +52,8 @@ export async function widgetConfigRoute(
         gdprEnabled: workspace.widget_gdpr_enabled ?? false,
         workspaceName: workspace.name,
         showBranding,
+        businessHours: workspace.business_hours ?? null,
+        timezone: workspace.timezone ?? "UTC",
       });
     }
   );

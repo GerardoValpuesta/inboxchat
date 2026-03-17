@@ -398,10 +398,88 @@
     );
   }
 
+  // ─── Business Hours ─────────────────────────────────────────────────────────
+  var businessHours = null;
+  var bhTimezone = "UTC";
+
+  /**
+   * Determina si ahora mismo estamos dentro del horario de atención.
+   * @param {object} bh  – businessHours del workspace (null = siempre disponible)
+   * @param {string} tz  – timezone string (IANA)
+   * @returns {boolean}
+   */
+  function isWithinBusinessHours(bh, tz) {
+    if (!bh || !bh.enabled) return true; // sin config = siempre disponible
+    try {
+      var now = new Date();
+      // Obtener día y hora en la timezone del workspace
+      var parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: tz,
+        weekday: "short",  // Mon, Tue...
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      }).formatToParts(now);
+      var dayMap = { Mon: "mon", Tue: "tue", Wed: "wed", Thu: "thu", Fri: "fri", Sat: "sat", Sun: "sun" };
+      var dayPart = parts.find(function(p) { return p.type === "weekday"; });
+      var hourPart = parts.find(function(p) { return p.type === "hour"; });
+      var minPart  = parts.find(function(p) { return p.type === "minute"; });
+      if (!dayPart || !hourPart || !minPart) return true;
+      var dayKey = dayMap[dayPart.value];
+      var nowTime = hourPart.value + ":" + minPart.value; // "HH:MM"
+
+      var days = bh.days || {};
+      var dayConf = days[dayKey];
+      if (!dayConf || !dayConf.enabled) return false;
+
+      return nowTime >= dayConf.open && nowTime < dayConf.close;
+    } catch(_) { return true; }
+  }
+
+  function applyBusinessHoursUI() {
+    if (!businessHours) return;
+    var within = isWithinBusinessHours(businessHours, bhTimezone);
+    var statusEl = document.getElementById("ic-header-status");
+    var offBanner = document.getElementById("ic-offhours-banner");
+
+    if (!within) {
+      if (statusEl) statusEl.textContent = businessHours.offHoursMessage ? "Fuera de horario" : "Fuera de horario";
+      // Mostrar banner en el panel si existe
+      if (offBanner) {
+        offBanner.style.display = "block";
+        offBanner.textContent = businessHours.offHoursMessage ||
+          "Estamos fuera de horario. Te responderemos el próximo día hábil.";
+      }
+    } else {
+      if (statusEl && !state.isConnected) statusEl.textContent = "Disponible";
+      if (offBanner) offBanner.style.display = "none";
+    }
+  }
+
   // ─── Inicialización ────────────────────────────────────────────────────────
   function init() {
     createStyles();
+
+    // Agregar CSS del banner off-hours
+    var bhStyle = document.createElement("style");
+    bhStyle.textContent =
+      "#ic-offhours-banner{display:none;background:#fef3c7;border-bottom:1px solid #fde68a;padding:8px 14px;font-size:12px;color:#78350f;flex-shrink:0}";
+    document.head.appendChild(bhStyle);
+
     var ui = createWidget();
+
+    // Agregar el banner off-hours dentro del panel (entre header y mensajes)
+    var panel = document.getElementById("ic-panel");
+    if (panel) {
+      var banner = document.createElement("div");
+      banner.id = "ic-offhours-banner";
+      var header = document.getElementById("ic-header");
+      if (header && header.nextSibling) {
+        panel.insertBefore(banner, header.nextSibling);
+      } else {
+        panel.appendChild(banner);
+      }
+    }
 
     // Si el visitante ya pasó el pre-chat (sesión anterior), ocultar el form de entrada
     if (state.preChatDone || state.conversationId) {
@@ -514,9 +592,16 @@
             var brandingEl = document.getElementById("ic-branding");
             if (brandingEl) brandingEl.style.display = "block";
           }
+          // Business hours — activa el banner si estamos fuera de horario
+          if (cfg.businessHours) {
+            businessHours = cfg.businessHours;
+            bhTimezone = cfg.timezone || "UTC";
+          }
         } catch (_) { /* ignorar errores de parseo */ }
       }
       callback();
+      // Aplicar off-hours UI después de que el DOM esté listo
+      setTimeout(applyBusinessHoursUI, 100);
     };
     xhr.onerror = function () { callback(); };
     xhr.send();
