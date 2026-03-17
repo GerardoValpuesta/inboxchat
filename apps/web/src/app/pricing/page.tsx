@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Precios",
-  description: "Planes simples y transparentes para InboxChat. Trial gratuito de 14 días, sin tarjeta de crédito.",
+  title: "Precios · InboxChat",
+  description: "Live chat para SaaS. Empieza gratis, escala cuando lo necesites. REST API, webhooks, CSAT y SLA desde $29/mes.",
 };
 
 function CheckIcon() {
@@ -23,23 +23,37 @@ function CheckIcon() {
 }
 
 const FREE_FEATURES = [
-  "14 días de prueba gratis",
-  "Hasta 100 conversaciones",
+  "14 días de prueba gratis (Pro)",
+  "Hasta 100 conversaciones/mes",
   "1 operador incluido",
-  "Widget personalizable (color, título, mensaje)",
-  "Pre-chat form",
+  "Widget personalizable",
+  "Chat en tiempo real",
+  "Historial 30 días",
   "Analytics básico",
-  "Soporte por email",
 ];
 
 const PRO_FEATURES = [
   "Conversaciones ilimitadas",
-  "Operadores ilimitados (invitados por email)",
-  "Todo lo del plan Trial",
-  "Consentimiento GDPR en el widget",
-  "Historial de mensajes ilimitado",
-  "Browser notifications",
-  "Soporte prioritario",
+  "Hasta 5 operadores",
+  "Todo lo del plan Free",
+  "REST API pública (Zapier, Make)",
+  "Webhooks salientes",
+  "Business hours",
+  "CSAT analytics",
+  "SLA alerts por email",
+  "Historial 1 año",
+  "Sin branding InboxChat",
+  "Soporte email 24h",
+];
+
+const GROWTH_FEATURES = [
+  "Conversaciones ilimitadas",
+  "Hasta 20 operadores",
+  "Todo lo del plan Pro",
+  "Rate limits altos en API",
+  "Webhooks con retry automático",
+  "Historial ilimitado",
+  "Soporte chat prioritario 24h",
 ];
 
 export default function PricingPage() {
@@ -233,7 +247,7 @@ export default function PricingPage() {
               Pro
             </p>
             <div style={{ display: "flex", alignItems: "baseline", gap: "4px" }}>
-              <span style={{ fontSize: "42px", fontWeight: 800, color: "#0f172a" }}>$19</span>
+              <span style={{ fontSize: "42px", fontWeight: 800, color: "#0f172a" }}>$29</span>
               <span style={{ fontSize: "16px", color: "#94a3b8" }}>{" "}/ mes</span>
             </div>
             <p style={{ fontSize: "14px", color: "#475569", margin: "8px 0 0" }}>
@@ -249,7 +263,7 @@ export default function PricingPage() {
             ))}
           </ul>
           <Link
-            href="/signup"
+            href="/login"
             style={{
               display: "block",
               textAlign: "center",
@@ -265,6 +279,57 @@ export default function PricingPage() {
             }}
           >
             Empezar con Pro →
+          </Link>
+        </div>
+
+        {/* Growth */}
+        <div
+          style={{
+            border: "1px solid #d1fae5",
+            borderRadius: "20px",
+            padding: "32px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "20px",
+            background: "linear-gradient(160deg, #f0fdf4 0%, #fff 60%)",
+          }}
+        >
+          <div>
+            <p style={{ fontSize: "13px", fontWeight: 600, color: "#059669", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 8px" }}>
+              Growth
+            </p>
+            <div style={{ display: "flex", alignItems: "baseline", gap: "4px" }}>
+              <span style={{ fontSize: "42px", fontWeight: 800, color: "#0f172a" }}>$79</span>
+              <span style={{ fontSize: "16px", color: "#94a3b8" }}>{" "}/ mes</span>
+            </div>
+            <p style={{ fontSize: "14px", color: "#475569", margin: "8px 0 0" }}>
+              Para SaaS en pleno crecimiento.
+            </p>
+          </div>
+          <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "10px" }}>
+            {GROWTH_FEATURES.map((f) => (
+              <li key={f} style={{ display: "flex", alignItems: "flex-start", gap: "10px", fontSize: "14px", color: "#334155" }}>
+                <CheckIcon />
+                <span>{f}</span>
+              </li>
+            ))}
+          </ul>
+          <Link
+            href="mailto:hola@inboxchat.app?subject=Plan Growth"
+            style={{
+              display: "block",
+              textAlign: "center",
+              padding: "12px",
+              borderRadius: "12px",
+              border: "1.5px solid #059669",
+              color: "#059669",
+              fontWeight: 600,
+              fontSize: "14px",
+              textDecoration: "none",
+              marginTop: "auto",
+            }}
+          >
+            Hablar con ventas →
           </Link>
         </div>
       </section>

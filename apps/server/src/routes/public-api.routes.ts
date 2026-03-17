@@ -14,14 +14,14 @@ import type { Database } from "../db/client.js";
  */
 export async function publicApiRoutes(app: FastifyInstance, { db }: { db: Database }) {
 
-  // ─── Auth helper ────────────────────────────────────────────────────────────
-  async function resolveByApiKey(headers: Record<string, string | string[] | undefined>): Promise<string | null> {
+  // ─── Auth helper (por API Key) ───────────────────────────────────────────────
+  async function resolveByApiKey(headers: Record<string, string | string[] | undefined>): Promise<{ id: string; plan: string } | null> {
     const key = headers["x-api-key"] as string | undefined;
     if (!key) return null;
-    const [ws] = await db<{ id: string }[]>`
-      SELECT id FROM workspaces WHERE api_key = ${key} LIMIT 1
+    const [ws] = await db<{ id: string; plan: string }[]>`
+      SELECT id, plan FROM workspaces WHERE api_key = ${key} LIMIT 1
     `;
-    return ws?.id ?? null;
+    return ws ?? null;
   }
 
   function unauthorized(reply: FastifyReply) {
@@ -29,6 +29,25 @@ export async function publicApiRoutes(app: FastifyInstance, { db }: { db: Databa
       error: "Unauthorized",
       hint: "Provide 'X-Api-Key: <your workspace api key>' header. Find it in Settings → API.",
     });
+  }
+
+  function planRequired(reply: FastifyReply) {
+    return reply.status(403).send({
+      error: "Plan upgrade required",
+      hint: "The Public REST API is available on the Pro plan. Upgrade at https://inboxchat-web.vercel.app/pricing",
+      upgrade_url: "https://inboxchat-web.vercel.app/pricing",
+    });
+  }
+
+  /** Resuelve workspace y verifica que sea plan Pro o superior. Retorna null + 403 si no pasa. */
+  async function requirePro(
+    request: { headers: Record<string, string | string[] | undefined> },
+    reply: FastifyReply
+  ): Promise<string | null> {
+    const ws = await resolveByApiKey(request.headers);
+    if (!ws) { void unauthorized(reply); return null; }
+    if (ws.plan === "free") { void planRequired(reply); return null; }
+    return ws.id;
   }
 
   // ─── GET /api/v1 — API Reference ────────────────────────────────────────────
@@ -53,8 +72,8 @@ export async function publicApiRoutes(app: FastifyInstance, { db }: { db: Databa
   app.get<{
     Querystring: { status?: "open" | "closed"; limit?: string; offset?: string }
   }>("/api/v1/conversations", async (request, reply) => {
-    const workspaceId = await resolveByApiKey(request.headers as Record<string, string | undefined>);
-    if (!workspaceId) return unauthorized(reply);
+    const workspaceId = await requirePro(request, reply);
+    if (!workspaceId) return;
 
     const status = request.query.status;
     const limit = Math.min(Number(request.query.limit ?? 50), 100);
@@ -97,8 +116,8 @@ export async function publicApiRoutes(app: FastifyInstance, { db }: { db: Databa
   app.get<{ Params: { id: string } }>(
     "/api/v1/conversations/:id/messages",
     async (request, reply) => {
-      const workspaceId = await resolveByApiKey(request.headers as Record<string, string | undefined>);
-      if (!workspaceId) return unauthorized(reply);
+      const workspaceId = await requirePro(request, reply);
+      if (!workspaceId) return;
 
       // Verificar que la conv pertenece al workspace
       const [conv] = await db<{ id: string }[]>`
@@ -133,8 +152,8 @@ export async function publicApiRoutes(app: FastifyInstance, { db }: { db: Databa
     Params: { id: string };
     Body: { body: string };
   }>("/api/v1/conversations/:id/messages", async (request, reply) => {
-    const workspaceId = await resolveByApiKey(request.headers as Record<string, string | undefined>);
-    if (!workspaceId) return unauthorized(reply);
+    const workspaceId = await requirePro(request, reply);
+    if (!workspaceId) return;
 
     const { body } = request.body;
     if (!body?.trim()) return reply.status(400).send({ error: "body is required" });
@@ -168,8 +187,8 @@ export async function publicApiRoutes(app: FastifyInstance, { db }: { db: Databa
     Params: { id: string };
     Body: { status: "open" | "closed" };
   }>("/api/v1/conversations/:id/status", async (request, reply) => {
-    const workspaceId = await resolveByApiKey(request.headers as Record<string, string | undefined>);
-    if (!workspaceId) return unauthorized(reply);
+    const workspaceId = await requirePro(request, reply);
+    if (!workspaceId) return;
 
     const { status } = request.body;
     if (status !== "open" && status !== "closed") {
@@ -191,8 +210,8 @@ export async function publicApiRoutes(app: FastifyInstance, { db }: { db: Databa
   app.get<{
     Querystring: { search?: string; limit?: string; offset?: string }
   }>("/api/v1/contacts", async (request, reply) => {
-    const workspaceId = await resolveByApiKey(request.headers as Record<string, string | undefined>);
-    if (!workspaceId) return unauthorized(reply);
+    const workspaceId = await requirePro(request, reply);
+    if (!workspaceId) return;
 
     const { search } = request.query;
     const limit = Math.min(Number(request.query.limit ?? 50), 100);
@@ -234,8 +253,8 @@ export async function publicApiRoutes(app: FastifyInstance, { db }: { db: Databa
       message?: string;
     };
   }>("/api/v1/conversations", async (request, reply) => {
-    const workspaceId = await resolveByApiKey(request.headers as Record<string, string | undefined>);
-    if (!workspaceId) return unauthorized(reply);
+    const workspaceId = await requirePro(request, reply);
+    if (!workspaceId) return;
 
     const { contact, message } = request.body ?? {};
     if (!contact) return reply.status(400).send({ error: "contact is required" });
