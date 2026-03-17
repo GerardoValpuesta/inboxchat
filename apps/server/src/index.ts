@@ -229,6 +229,10 @@ async function bootstrap() {
   // 12. AI Auto-Reply cron — respuestas automáticas con Gemini Flash
   const { startAiAutoReplyCron } = await import("./lib/ai-auto-reply.js");
   void startAiAutoReplyCron(db, io);
+
+  // 13. Weekly summary cron — resumen semanal por email cada lunes 9am UTC
+  const { startWeeklySummaryCron } = await import("./lib/weekly-summary-cron.js");
+  void startWeeklySummaryCron(db);
 }
 
 bootstrap().catch((err: unknown) => {

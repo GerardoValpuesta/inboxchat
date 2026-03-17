@@ -248,3 +248,82 @@ export async function sendWelcomeEmail(opts: {
 </html>`,
   });
 }
+
+/**
+ * Weekly Summary Email — se envía cada lunes con stats de la semana anterior.
+ * Stats: total convs, resueltas, tiempo de primera respuesta avg, CSAT avg.
+ */
+export async function sendWeeklySummaryEmail(opts: {
+  to: string;
+  workspaceName: string;
+  weekLabel: string;
+  total: number;
+  resolved: number;
+  avgFirstResponseMin: number | null;
+  csatAvg: number | null;
+  inboxUrl: string;
+}): Promise<void> {
+  const resend = getResend();
+
+  const resolutionRate = opts.total > 0
+    ? Math.round((opts.resolved / opts.total) * 100)
+    : 0;
+
+  const formatTime = (min: number | null): string => {
+    if (min === null) return "—";
+    if (min < 60) return `${Math.round(min)} min`;
+    return `${(min / 60).toFixed(1)}h`;
+  };
+
+  const csatLine = opts.csatAvg !== null
+    ? `<tr><td style="padding:10px 0;color:#64748b;font-size:14px">CSAT promedio</td><td style="padding:10px 0;font-size:20px;font-weight:700;color:#7c3aed;text-align:right">${opts.csatAvg}/5 ⭐</td></tr>`
+    : "";
+
+  await resend.emails.send({
+    from: FROM,
+    to: opts.to,
+    subject: `📊 Tu resumen semanal — ${opts.workspaceName} (${opts.weekLabel})`,
+    html: `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8" /></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f8fafc;margin:0;padding:40px 16px;">
+  <div style="max-width:520px;margin:0 auto;background:white;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;">
+    <div style="background:linear-gradient(135deg,#7c3aed 0%,#4f46e5 100%);padding:28px 32px;">
+      <div style="font-size:13px;color:rgba(255,255,255,0.7);margin-bottom:4px">InboxChat · Resumen semanal</div>
+      <h1 style="color:white;font-size:20px;font-weight:700;margin:0">${opts.workspaceName}</h1>
+      <p style="color:rgba(255,255,255,0.7);font-size:13px;margin:4px 0 0">${opts.weekLabel}</p>
+    </div>
+    <div style="padding:28px 32px;">
+      <table style="width:100%;border-collapse:collapse;">
+        <tr><td colspan="2" style="padding-bottom:12px;font-weight:600;color:#374151;font-size:15px;border-bottom:1px solid #e2e8f0">Esta semana</td></tr>
+        <tr>
+          <td style="padding:10px 0;color:#64748b;font-size:14px">Conversaciones nuevas</td>
+          <td style="padding:10px 0;font-size:20px;font-weight:700;color:#1e293b;text-align:right">${opts.total}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 0;color:#64748b;font-size:14px">Resueltas</td>
+          <td style="padding:10px 0;font-size:20px;font-weight:700;color:#10b981;text-align:right">${opts.resolved} <span style="font-size:13px;color:#64748b">(${resolutionRate}%)</span></td>
+        </tr>
+        <tr>
+          <td style="padding:10px 0;color:#64748b;font-size:14px">Tiempo medio de respuesta</td>
+          <td style="padding:10px 0;font-size:20px;font-weight:700;color:#f59e0b;text-align:right">${formatTime(opts.avgFirstResponseMin)}</td>
+        </tr>
+        ${csatLine}
+      </table>
+      <a href="${opts.inboxUrl}"
+         style="display:inline-block;margin-top:24px;background:linear-gradient(135deg,#7c3aed 0%,#4f46e5 100%);color:white;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px;">
+        Ir al inbox →
+      </a>
+    </div>
+    <div style="padding:16px 32px;border-top:1px solid #e2e8f0;text-align:center;">
+      <p style="color:#94a3b8;font-size:12px;margin:0">
+        InboxChat · Resumen automático de los lunes ·
+        <a href="https://inboxchat.app" style="color:#7c3aed;text-decoration:none">inboxchat.app</a>
+      </p>
+    </div>
+  </div>
+</body>
+</html>`,
+  });
+}
