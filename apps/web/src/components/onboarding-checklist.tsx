@@ -36,10 +36,17 @@ export function OnboardingChecklist({
   conversationCount,
   hasOperators,
   apiKey,
+  widgetInstalled: widgetInstalledProp,
+  firstChatReceived: firstChatReceivedProp,
+  agentInvited: agentInvitedProp,
 }: {
   conversationCount: number;
   hasOperators: boolean;
   apiKey: string;
+  // Datos reales de workspace_events (opcionales, fallback a inferidos)
+  widgetInstalled?: boolean;
+  firstChatReceived?: boolean;
+  agentInvited?: boolean;
 }) {
   const [visible, setVisible] = useState(false);
   const [steps, setSteps] = useState<OnboardingState>(() => {
@@ -57,11 +64,11 @@ export function OnboardingChecklist({
     // No mostrar si ya fue dismisseado
     if (localStorage.getItem(LS_KEY)) return;
 
-    // Actualizar steps basados en datos reales del workspace
+    // Preferir datos reales del servidor; si no están, inferir desde props legacy
     const newSteps: OnboardingState = {
-      widgetInstalled: steps.widgetInstalled || conversationCount > 0,
-      firstChatReceived: conversationCount > 0,
-      agentInvited: steps.agentInvited || hasOperators,
+      widgetInstalled: widgetInstalledProp ?? steps.widgetInstalled ?? conversationCount > 0,
+      firstChatReceived: firstChatReceivedProp ?? conversationCount > 0,
+      agentInvited: agentInvitedProp ?? steps.agentInvited ?? hasOperators,
     };
     localStorage.setItem(STEPS_KEY, JSON.stringify(newSteps));
     setSteps(newSteps);
@@ -77,7 +84,7 @@ export function OnboardingChecklist({
     }
     return () => { if (timer) clearTimeout(timer); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversationCount, hasOperators]);
+  }, [conversationCount, hasOperators, widgetInstalledProp, firstChatReceivedProp, agentInvitedProp]);
 
   function dismiss() {
     localStorage.setItem(LS_KEY, "1");

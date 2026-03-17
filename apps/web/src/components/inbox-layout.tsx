@@ -68,6 +68,11 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
     apiKey: string;
     hasOperators: boolean;
     slaMinutes: number;
+    plan: string;
+    // Activación real desde workspace_events
+    widgetInstalled: boolean;
+    firstChatReceived: boolean;
+    agentInvited: boolean;
   } | null>(null);
 
   useEffect(() => {
@@ -75,10 +80,12 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
       fetch(`${SERVER_URL}/api/billing/status`, { headers: getAuthHeaders() }).then((r) => r.json()),
       fetch(`${SERVER_URL}/api/workspace/me`, { headers: getAuthHeaders() }).then((r) => r.json()),
       fetch(`${SERVER_URL}/api/operators`, { headers: getAuthHeaders() }).then((r) => r.json()),
-    ]).then(([billing, me, ops]: [
+      fetch(`${SERVER_URL}/api/workspace/activation`, { headers: getAuthHeaders() }).then((r) => r.json()).catch(() => null),
+    ]).then(([billing, me, ops, activation]: [
       { trialDaysLeft: number | null; isActive: boolean; conversationCount: number },
-      { workspace: { apiKey: string; slaMinutes?: number } },
+      { workspace: { apiKey: string; slaMinutes?: number; plan?: string } },
       { operators: unknown[] },
+      { activation?: { widgetInstalled: boolean; firstMessageAt: string | null; agentInvited: boolean } } | null,
     ]) => {
       setBillingInfo({
         trialDaysLeft: billing.trialDaysLeft,
@@ -87,6 +94,11 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
         apiKey: me.workspace.apiKey,
         hasOperators: (ops.operators ?? []).length > 1,
         slaMinutes: me.workspace.slaMinutes ?? 10,
+        plan: me.workspace.plan ?? "free",
+        // Preferir datos reales de workspace_events; fallback a conversationCount
+        widgetInstalled: activation?.activation?.widgetInstalled ?? billing.conversationCount > 0,
+        firstChatReceived: (activation?.activation?.firstMessageAt != null) || billing.conversationCount > 0,
+        agentInvited: activation?.activation?.agentInvited ?? (ops.operators ?? []).length > 1,
       });
     }).catch(() => {/* silenciar */});
   }, []);
@@ -230,11 +242,14 @@ export function InboxLayout({ workspaceId }: InboxLayoutProps) {
           ${activeConversationId ? "hidden md:flex" : "flex"}
           flex-col overflow-hidden
         `}>
-          {billingInfo && conversations.length <= 3 && (
+          {billingInfo && !(billingInfo.widgetInstalled && billingInfo.firstChatReceived && billingInfo.agentInvited) && (
             <OnboardingChecklist
               conversationCount={billingInfo.conversationCount}
-              hasOperators={billingInfo.hasOperators}
+              hasOperators={billingInfo.agentInvited}
               apiKey={billingInfo.apiKey}
+              widgetInstalled={billingInfo.widgetInstalled}
+              firstChatReceived={billingInfo.firstChatReceived}
+              agentInvited={billingInfo.agentInvited}
             />
           )}
           {/* Tabs: Abiertas / Resueltas */}

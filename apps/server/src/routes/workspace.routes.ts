@@ -94,4 +94,46 @@ export async function workspaceRoutes(
       return reply.send({ ok: true });
     }
   );
+
+  // ─── GET /api/workspace/activation ───────────────────────────────────────
+  // Retorna el estado del checklist de onboarding basado en workspace_events reales.
+  app.get("/api/workspace/activation", async (request, reply) => {
+    const workspaceId = await resolveWorkspaceId(
+      request.headers as Record<string, string | undefined>
+    );
+    if (!workspaceId) return reply.status(401).send({ error: "No autenticado" });
+
+    // Eventos registrados en workspace_events
+    const events = await db<{ event: string; created_at: string }[]>`
+      SELECT event, created_at
+      FROM workspace_events
+      WHERE workspace_id = ${workspaceId}
+        AND event IN ('widget_installed', 'first_message', 'first_reply', 'plan_upgraded')
+      ORDER BY created_at ASC
+    `;
+
+    const eventMap = new Map(events.map((e) => [e.event, e.created_at]));
+
+    // Verificar si hay más de 1 operador (agente invitado)
+    const [opsCount] = await db<{ total: number }[]>`
+      SELECT COUNT(*)::int AS total FROM operators WHERE workspace_id = ${workspaceId}
+    `;
+    const hasInvitedAgent = (opsCount?.total ?? 1) > 1;
+
+    return reply.send({
+      activation: {
+        widgetInstalled:  eventMap.has("widget_installed"),
+        firstMessageAt:   eventMap.get("first_message") ?? null,
+        firstReplyAt:     eventMap.get("first_reply") ?? null,
+        agentInvited:     hasInvitedAgent,
+        planUpgradedAt:   eventMap.get("plan_upgraded") ?? null,
+      },
+      completedSteps: [
+        eventMap.has("widget_installed"),
+        eventMap.has("first_message"),
+        hasInvitedAgent,
+      ].filter(Boolean).length,
+      totalSteps: 3,
+    });
+  });
 }
