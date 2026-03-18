@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import type { Database } from "../db/client.js";
 import { verifyToken, extractTokenFromHeader } from "../lib/jwt.js";
+import { randomUUID } from "node:crypto";
 
 /**
  * GET  /api/workspace/me  — info del workspace del operador autenticado
@@ -55,6 +56,13 @@ export async function workspaceRoutes(
 
     if (!workspace) return reply.status(404).send({ error: "Workspace no encontrado" });
 
+    // Si api_key es null (workspace viejo sin key), generar una automáticamente
+    if (!workspace.api_key) {
+      const newKey = `ic_${randomUUID().replace(/-/g, "")}`;
+      await db`UPDATE workspaces SET api_key = ${newKey} WHERE id = ${workspaceId}`;
+      workspace.api_key = newKey;
+    }
+
     void reply.header("Cache-Control", "private, max-age=30, stale-while-revalidate=60");
     return reply.send({
       workspace: {
@@ -105,6 +113,19 @@ export async function workspaceRoutes(
       return reply.send({ ok: true });
     }
   );
+
+  // POST /api/workspace/me/api-key — regenerar la API key del workspace
+  app.post("/api/workspace/me/api-key", async (request, reply) => {
+    const workspaceId = await resolveWorkspaceId(
+      request.headers as Record<string, string | undefined>
+    );
+    if (!workspaceId) return reply.status(401).send({ error: "No autenticado" });
+
+    const newKey = `ic_${randomUUID().replace(/-/g, "")}`;
+    await db`UPDATE workspaces SET api_key = ${newKey} WHERE id = ${workspaceId}`;
+
+    return reply.send({ apiKey: newKey });
+  });
 
   // ─── GET /api/workspace/activation ───────────────────────────────────────
   // Retorna el estado del checklist de onboarding basado en workspace_events reales.

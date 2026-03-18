@@ -19,9 +19,12 @@ export default function ApiSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [serverUrl, setServerUrl] = useState("");
+  const [regenerating, setRegenerating] = useState(false);
+  const [confirmRegen, setConfirmRegen] = useState(false);
 
   useEffect(() => {
-    setServerUrl(SERVER_URL.replace("localhost:3001", "server.inboxchat.app"));
+    // En prod, SERVER_URL ya es la URL real del Railway server
+    setServerUrl(SERVER_URL.startsWith("http://localhost") ? "https://server.inboxchat.app" : SERVER_URL);
     fetch(`${SERVER_URL}/api/workspace/me`, { headers: getAuthHeaders() })
       .then((r) => {
         if (r.status === 401) { router.push(`/login?from=${encodeURIComponent(window.location.pathname)}`); return null; }
@@ -36,6 +39,19 @@ export default function ApiSettingsPage() {
     await navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  async function regenerateKey() {
+    setRegenerating(true); setConfirmRegen(false);
+    try {
+      const res = await fetch(`${SERVER_URL}/api/workspace/me/api-key`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+      });
+      const data = await res.json() as { apiKey?: string };
+      if (data.apiKey) setApiKey(data.apiKey);
+    } catch { /* ignore */ }
+    finally { setRegenerating(false); }
   }
 
   const endpoints = [
@@ -72,12 +88,9 @@ export default function ApiSettingsPage() {
     DELETE: "#ef4444",
   };
 
-  const curlExample = apiKey
-    ? `curl https://server.inboxchat.app/api/v1/conversations \\
-  -H "X-Api-Key: ${apiKey}" \\
-  -H "Accept: application/json"`
-    : `curl https://server.inboxchat.app/api/v1/conversations \\
-  -H "X-Api-Key: TU_API_KEY" \\
+  const displayServerUrl = serverUrl || SERVER_URL;
+  const curlExample = `curl ${displayServerUrl}/api/v1/conversations \\
+  -H "X-Api-Key: ${apiKey ?? "TU_API_KEY"}" \\
   -H "Accept: application/json"`;
 
   return (
@@ -106,17 +119,40 @@ export default function ApiSettingsPage() {
           {loading ? (
             <div className="h-10 bg-slate-100 rounded-lg animate-pulse" />
           ) : (
-            <div className="flex gap-2">
-              <code className="flex-1 bg-slate-900 text-emerald-400 text-xs font-mono rounded-lg px-4 py-3 overflow-x-auto whitespace-nowrap">
-                {apiKey ?? "—"}
-              </code>
-              <button
-                onClick={() => apiKey && void copy(apiKey)}
-                className="px-3 py-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors flex-shrink-0"
-              >
-                {copied ? "✓ Copiado" : "Copiar"}
-              </button>
-            </div>
+            <>
+              <div className="flex gap-2">
+                <code className="flex-1 bg-slate-900 text-emerald-400 text-xs font-mono rounded-lg px-4 py-3 overflow-x-auto whitespace-nowrap">
+                  {apiKey ?? "(sin generar)"}
+                </code>
+                <button
+                  onClick={() => apiKey && void copy(apiKey)}
+                  disabled={!apiKey}
+                  className="px-3 py-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors flex-shrink-0 disabled:opacity-40"
+                >
+                  {copied ? "✓ Copiado" : "Copiar"}
+                </button>
+                <button
+                  onClick={() => setConfirmRegen(true)}
+                  disabled={regenerating}
+                  className="px-3 py-2 text-xs font-semibold bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg transition-colors flex-shrink-0"
+                >
+                  {regenerating ? "..." : apiKey ? "Regenerar" : "Generar"}
+                </button>
+              </div>
+              {confirmRegen && (
+                <div className="mt-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800">
+                  Al regenerar, la key anterior deja de funcionar.
+                  <div className="flex gap-2 mt-2">
+                    <button onClick={() => void regenerateKey()} className="px-3 py-1 bg-amber-600 text-white rounded font-semibold">
+                      Confirmar
+                    </button>
+                    <button onClick={() => setConfirmRegen(false)} className="px-3 py-1 border border-amber-300 rounded text-amber-700">
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
           <p className="text-xs text-slate-400 mt-2">
             Header requerido: <code className="bg-slate-100 px-1 rounded">X-Api-Key: {"{tu api key}"}</code>
@@ -192,7 +228,7 @@ export default function ApiSettingsPage() {
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
           <h2 className="text-sm font-semibold text-slate-800 mb-3">Base URL</h2>
           <code className="block bg-slate-900 text-violet-400 text-xs font-mono rounded-lg px-4 py-3">
-            {serverUrl || "https://server.inboxchat.app"}
+            {displayServerUrl}
           </code>
           <p className="text-xs text-slate-400 mt-2">
             Todas las respuestas son JSON. Las respuestas de error incluyen el campo <code className="bg-slate-100 px-1 rounded">error</code>.
