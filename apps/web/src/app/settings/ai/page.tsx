@@ -40,7 +40,11 @@ export default function AiSettingsPage() {
   useEffect(() => {
     fetch(`${SERVER_URL}/api/ai-config`, { headers: getAuthHeaders() })
       .then((r) => r.json())
-      .then((data: AiConfig) => setConfig(data))
+      .then((data: AiConfig) => setConfig({
+        ...data,
+        // aiContext puede llegar null si nunca se configuró
+        aiContext: data.aiContext ?? "",
+      }))
       .catch(() => setError("Error al cargar la configuración"))
       .finally(() => setLoading(false));
   }, []);
@@ -176,13 +180,13 @@ export default function AiSettingsPage() {
         </div>
         <textarea
           rows={4}
-          value={config.aiContext}
+          value={config.aiContext ?? ""}
           onChange={(e) => void handleSave({ aiContext: e.target.value })}
           placeholder="Ej: Somos una plataforma SaaS de facturación para pymes en México. Nuestro precio es $29/mes. El soporte funciona de lunes a viernes de 9am a 6pm."
           maxLength={2000}
           className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2.5 resize-none focus:outline-none focus:ring-2 focus:ring-violet-500 text-slate-700 placeholder-slate-400"
         />
-        <p className="text-xs text-slate-400 text-right">{config.aiContext.length}/2000</p>
+        <p className="text-xs text-slate-400 text-right">{(config.aiContext ?? "").length}/2000</p>
       </div>
 
       {/* Trigger + Tono en grid */}

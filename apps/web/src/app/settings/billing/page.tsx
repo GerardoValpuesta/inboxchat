@@ -29,6 +29,7 @@ export default function BillingPage() {
   const [status, setStatus] = useState<BillingStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [portalError, setPortalError] = useState(false);
 
   const searchParams =
     typeof window !== "undefined"
@@ -65,15 +66,20 @@ export default function BillingPage() {
 
   async function handlePortal() {
     setActionLoading(true);
+    setPortalError(false);
     try {
       const res = await fetch(`${SERVER_URL}/api/billing/portal`, {
         method: "POST",
         headers: getAuthHeaders() as HeadersInit,
       });
       const data = (await res.json()) as { url?: string; error?: string };
-      if (data.url) window.location.href = data.url;
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        setPortalError(true);
+      }
     } catch {
-      // silently fail
+      setPortalError(true);
     } finally {
       setActionLoading(false);
     }
@@ -88,6 +94,8 @@ export default function BillingPage() {
   }
 
   const isPro = status?.plan === "pro" && status?.isActive;
+  // Solo mostrar cancelar si hay una suscripción activa en Stripe
+  const hasStripeSubscription = Boolean(status?.stripeSubscriptionStatus);
 
   return (
     <div className="max-w-lg mx-auto px-6 py-8">
@@ -214,15 +222,18 @@ export default function BillingPage() {
         </div>
       </div>
 
-      {/* Sección cancelar — siempre visible */}
+      {/* Sección cancelar — visible solo con suscripción Stripe activa */}
       <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 space-y-2">
         <p className="text-sm font-medium text-slate-700">¿Querés cancelar o gestionar tu suscripción?</p>
         <p className="text-xs text-slate-500">
-          {isPro
+          {hasStripeSubscription
             ? "Podés cancelar en cualquier momento desde el portal de Stripe. Tu acceso Pro se mantiene hasta el fin del período pagado."
             : "Estás en el período de prueba gratuita. No hay nada que cancelar — simplemente no hagas el upgrade cuando termine el trial."}
         </p>
-        {isPro && (
+        {portalError && (
+          <p className="text-xs text-red-500">No se pudo abrir el portal. Escribinos a hola@inboxchat.app si el problema persiste.</p>
+        )}
+        {hasStripeSubscription && (
           <button
             onClick={() => void handlePortal()}
             disabled={actionLoading}

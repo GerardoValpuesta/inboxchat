@@ -158,22 +158,23 @@ export default function WidgetSettingsPage() {
     ]).then(async ([meRes]) => {
       if (meRes.status === 401) { router.push("/login"); return; }
       const meData = await meRes.json() as { workspace: { apiKey: string } };
-      const key = meData.workspace.apiKey;
-      setApiKey(key);
-
-      // Cargar config actual del widget
-      const cfgRes = await fetch(`${SERVER_URL}/api/widget/config?key=${key}`);
-      if (cfgRes.ok) {
-        const cfg = await cfgRes.json() as {
-          title?: string; color?: string;
-          welcomeMessage?: string; gdprEnabled?: boolean;
-        };
-        setConfig({
-          title: cfg.title ?? "Soporte",
-          color: cfg.color ?? "#1e293b",
-          welcomeMessage: cfg.welcomeMessage ?? "¡Hola! 👋 ¿En qué podemos ayudarte?",
-          gdprEnabled: cfg.gdprEnabled ?? false,
-        });
+      const key = meData?.workspace?.apiKey;
+      if (key) {
+        setApiKey(key);
+        // Solo cargamos la config del widget si tenemos un key válido
+        const cfgRes = await fetch(`${SERVER_URL}/api/widget/config?key=${key}`);
+        if (cfgRes.ok) {
+          const cfg = await cfgRes.json() as {
+            title?: string; color?: string;
+            welcomeMessage?: string; gdprEnabled?: boolean;
+          };
+          setConfig({
+            title: cfg.title ?? "Soporte",
+            color: cfg.color ?? "#1e293b",
+            welcomeMessage: cfg.welcomeMessage ?? "¡Hola! 👋 ¿En qué podemos ayudarte?",
+            gdprEnabled: cfg.gdprEnabled ?? false,
+          });
+        }
       }
     }).catch(() => {}).finally(() => setLoading(false));
   }, [router]);
