@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 
 const NAV_ITEMS = [
-  { href: "/settings",               label: "General",        Icon: Settings },
+  { href: "/settings/general",       label: "General",        Icon: Settings },
   { href: "/settings/widget",        label: "Widget",         Icon: MessageSquare },
   { href: "/settings/ai",            label: "AI Auto-Reply",  Icon: Sparkles,  badge: "Pro" },
   { href: "/settings/notifications", label: "Notificaciones", Icon: Bell },
