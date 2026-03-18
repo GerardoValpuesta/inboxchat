@@ -115,13 +115,15 @@ export default function SettingsPage() {
           conversationCount: billing.conversationCount,
         });
         // Cargar config actual del widget desde el servidor
-        const cfg = await fetch(`${SERVER_URL}/api/widget/config?key=${me.workspace.apiKey}`);
-        if (cfg.ok) {
-          const d = await cfg.json() as { title?: string; color?: string; welcomeMessage?: string; gdprEnabled?: boolean };
-          if (d.title) setWidgetTitle(d.title);
-          if (d.color) setWidgetColor(d.color);
-          if (d.welcomeMessage) setWidgetWelcome(d.welcomeMessage);
-          if (d.gdprEnabled !== undefined) setWidgetGdpr(d.gdprEnabled);
+        if (me.workspace.apiKey) {
+          const cfg = await fetch(`${SERVER_URL}/api/widget/config?key=${me.workspace.apiKey}`);
+          if (cfg.ok) {
+            const d = await cfg.json() as { title?: string; color?: string; welcomeMessage?: string; gdprEnabled?: boolean };
+            if (d.title) setWidgetTitle(d.title);
+            if (d.color) setWidgetColor(d.color);
+            if (d.welcomeMessage) setWidgetWelcome(d.welcomeMessage);
+            if (d.gdprEnabled !== undefined) setWidgetGdpr(d.gdprEnabled);
+          }
         }
         // Cargar operadores
         const opsRes = await fetch(`${SERVER_URL}/api/operators`, { headers: getAuthHeaders() as HeadersInit });
