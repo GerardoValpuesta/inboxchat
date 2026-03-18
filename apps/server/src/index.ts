@@ -35,7 +35,15 @@ async function bootstrap() {
             options: { colorize: true },
           },
         }
-      : { level: "warn" },
+      : {
+          // Prod: nivel info para auditar accesos (sin loguear bodies — datos sensibles)
+          level: "info",
+          serializers: {
+            req(req) {
+              return { method: req.method, url: req.url, remoteAddress: req.ip };
+            },
+          },
+        },
   });
 
   // 4. Plugins de seguridad
@@ -58,11 +66,11 @@ async function bootstrap() {
       if (!origin) return callback(null, true);
 
       if (env.NODE_ENV === "production") {
-        // En producción: SOLO el dashboard oficial
-        const allowed = new Set([env.WEB_URL, "http://localhost:3000"]);
-        if (allowed.has(origin)) return callback(null, true);
+        // SECURITY: En producción SOLO el dominio oficial del dashboard
+        // localhost nunca debe estar en el allowlist de prod
+        if (origin === env.WEB_URL) return callback(null, true);
       } else {
-        // En dev/staging: también permitir previews de Vercel y Railway
+        // En dev/staging: también permitir previews de Vercel, Railway y localhost
         if (
           allowedOrigins.has(origin) ||
           origin.endsWith(".vercel.app") ||
