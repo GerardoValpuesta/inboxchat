@@ -1,16 +1,54 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import dynamic from "next/dynamic";
 import { useSocket } from "@/hooks/use-socket";
 import { useInboxStore } from "@/store/inbox.store";
-import { ConversationList } from "@/components/conversation-list";
-import { ChatPanel } from "@/components/chat-panel";
 import { TrialBanner } from "@/components/trial-banner";
-import { OnboardingChecklist } from "@/components/onboarding-checklist";
-import { ContactPanel } from "@/components/contact-panel";
-import { GlobalSearch } from "@/components/global-search";
 import { useInboxKeyboard } from "@/hooks/use-inbox-keyboard";
 import type { Conversation, Message } from "@inboxchat/shared";
+
+// ─── Lazy-loaded (heavy components) ─────────────────────────────────────────
+const ConversationList = dynamic(
+  () => import("@/components/conversation-list").then((m) => m.ConversationList),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex flex-col gap-2 p-4">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="h-16 rounded-xl bg-slate-100 animate-pulse" />
+        ))}
+      </div>
+    ),
+  }
+);
+
+const ChatPanel = dynamic(
+  () => import("@/components/chat-panel").then((m) => m.ChatPanel),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex-1 flex items-center justify-center bg-white">
+        <div className="w-6 h-6 rounded-full border-2 border-violet-300 border-t-violet-600 animate-spin" />
+      </div>
+    ),
+  }
+);
+
+const ContactPanel = dynamic(
+  () => import("@/components/contact-panel").then((m) => m.ContactPanel),
+  { ssr: false, loading: () => null }
+);
+
+const GlobalSearch = dynamic(
+  () => import("@/components/global-search").then((m) => m.GlobalSearch),
+  { ssr: false, loading: () => null }
+);
+
+const OnboardingChecklist = dynamic(
+  () => import("@/components/onboarding-checklist").then((m) => m.OnboardingChecklist),
+  { ssr: false, loading: () => null }
+);
 
 const SERVER_URL =
   process.env["NEXT_PUBLIC_SERVER_URL"] ?? "http://localhost:3001";
