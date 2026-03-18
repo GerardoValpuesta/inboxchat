@@ -14,10 +14,12 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get("ic_token")?.value;
 
-  // Páginas pública solo — si ya autenticado, ir al inbox
+  // Páginas pública solo — si ya autenticado, ir al destino original o al inbox
   const publicOnly = ["/login", "/register", "/signup"];
   if (publicOnly.some((p) => pathname.startsWith(p)) && token) {
-    return NextResponse.redirect(new URL("/inbox", request.url));
+    const from = request.nextUrl.searchParams.get("from");
+    const dest = from && from.startsWith("/") ? from : "/inbox";
+    return NextResponse.redirect(new URL(dest, request.url));
   }
 
   // Rutas pública — no requieren auth
