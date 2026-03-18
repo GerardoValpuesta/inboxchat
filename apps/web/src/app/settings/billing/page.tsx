@@ -21,6 +21,7 @@ interface BillingStatus {
   trialDaysLeft: number | null;
   conversationCount: number;
   stripeSubscriptionStatus: string | null;
+  hasStripeCustomer: boolean;
   isActive: boolean;
 }
 
@@ -133,8 +134,8 @@ export default function BillingPage() {
   }
 
   const isPro = status?.plan === "pro" && status?.isActive;
-  // Solo mostrar cancelar si hay una suscripción activa en Stripe
-  const hasStripeSubscription = Boolean(status?.stripeSubscriptionStatus);
+  // Mostrar el portal si el workspace tiene stripe_customer_id (es lo que chequea el endpoint)
+  const hasStripeCustomer = Boolean(status?.hasStripeCustomer);
 
   return (
     <div className="max-w-lg mx-auto px-6 py-8">
@@ -303,13 +304,13 @@ export default function BillingPage() {
       <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 space-y-2">
         <p className="text-sm font-medium text-slate-700">¿Querés cancelar o gestionar tu suscripción?</p>
         <p className="text-xs text-slate-500">
-          {hasStripeSubscription
+          {hasStripeCustomer
             ? "Podés cancelar en cualquier momento desde el portal de Stripe. Tu acceso Pro se mantiene hasta el fin del período pagado."
             : isPro
-            ? "Tu plan Pro fue activado manualmente. Para cancelar o gestionar tu plan, contactános en hola@inboxchat.app."
+            ? "Tu plan Pro fue activado manualmente. Para cancelar o gestionar tu plan, contactanos en hola@inboxchat.app."
             : "Estás en el período de prueba gratuita. No hay nada que cancelar — simplemente no hagas el upgrade cuando termine el trial."}
         </p>
-        {hasStripeSubscription && (
+        {hasStripeCustomer && (
           <>
             {portalError && (
               <p className="text-xs text-red-500">No se pudo abrir el portal. Escribínos a hola@inboxchat.app si el problema persiste.</p>

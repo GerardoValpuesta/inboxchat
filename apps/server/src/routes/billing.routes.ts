@@ -98,6 +98,7 @@ export async function billingRoutes(
       trialDaysLeft,
       conversationCount: billing.conversation_count,
       stripeSubscriptionStatus: billing.stripe_subscription_status,
+      hasStripeCustomer: Boolean(billing.stripe_customer_id),
       isActive,
     });
   });
