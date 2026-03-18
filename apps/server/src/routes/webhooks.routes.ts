@@ -15,6 +15,20 @@ function resolveWorkspaceId(
   return null;
 }
 
+/** Verifica que el workspace esté en plan Pro. Retorna false y envía 403 si no pasa. */
+async function requirePro(db: Database, wsId: string, reply: import("fastify").FastifyReply): Promise<boolean> {
+  const [ws] = await db<{ plan: string }[]>`SELECT plan FROM workspaces WHERE id = ${wsId} LIMIT 1`;
+  if (!ws || ws.plan !== "pro") {
+    void reply.status(403).send({
+      error: "Plan upgrade required",
+      message: "Los webhooks están disponibles en el plan Pro.",
+      upgrade_url: "https://inboxchat-web.vercel.app/settings/billing",
+    });
+    return false;
+  }
+  return true;
+}
+
 /**
  * GET  /api/webhooks             — listar webhooks del workspace
  * POST /api/webhooks             — crear webhook
@@ -34,6 +48,7 @@ export async function webhookRoutes(
       request.headers.authorization
     );
     if (!wsId) return reply.status(401).send({ error: "No autorizado" });
+    if (!await requirePro(db, wsId, reply)) return;
 
     const webhooks = await db<{
       id: string; url: string; events: string[];
@@ -56,6 +71,7 @@ export async function webhookRoutes(
         request.headers.authorization
       );
       if (!wsId) return reply.status(401).send({ error: "No autorizado" });
+      if (!await requirePro(db, wsId, reply)) return;
 
       const { url, secret, events = ["message.created"] } = request.body;
       if (!url || !url.startsWith("http")) {
@@ -81,6 +97,7 @@ export async function webhookRoutes(
       request.headers.authorization
     );
     if (!wsId) return reply.status(401).send({ error: "No autorizado" });
+    if (!await requirePro(db, wsId, reply)) return;
 
     const { url, secret, events, enabled } = request.body;
     await db`
@@ -103,6 +120,7 @@ export async function webhookRoutes(
       request.headers.authorization
     );
     if (!wsId) return reply.status(401).send({ error: "No autorizado" });
+    if (!await requirePro(db, wsId, reply)) return;
 
     await db`
       DELETE FROM outgoing_webhooks
