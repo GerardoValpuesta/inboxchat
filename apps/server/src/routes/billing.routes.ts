@@ -91,6 +91,7 @@ export async function billingRoutes(
       billing.plan === "pro" ||
       (billing.plan === "trial" && trialDaysLeft !== null && trialDaysLeft > 0);
 
+    void reply.header("Cache-Control", "private, max-age=30, stale-while-revalidate=60");
     return reply.send({
       plan: billing.plan,
       trialEndsAt: effectiveTrialEndsAt?.toISOString() ?? null,

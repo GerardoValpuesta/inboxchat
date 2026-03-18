@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 
@@ -33,7 +33,6 @@ export const metadata: Metadata = {
     images: ["/og-image.png"],
   },
   robots: { index: true, follow: true, googleBot: { index: true, follow: true } },
-  themeColor: "#7c3aed",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -44,6 +43,10 @@ export const metadata: Metadata = {
     icon: "/favicon.ico",
     apple: "/icons/icon-192.png",
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#7c3aed",
 };
 
 export default function RootLayout({

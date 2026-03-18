@@ -55,6 +55,7 @@ export async function workspaceRoutes(
 
     if (!workspace) return reply.status(404).send({ error: "Workspace no encontrado" });
 
+    void reply.header("Cache-Control", "private, max-age=30, stale-while-revalidate=60");
     return reply.send({
       workspace: {
         id: workspace.id,
