@@ -215,20 +215,32 @@ export default function BillingPage() {
         <div className="p-6 space-y-3">
           {isPro ? (
             <>
-              <p className="text-sm text-slate-600">
-                Gestioná tu suscripción, cambiá el método de pago o cancelá desde el portal de Stripe.
-              </p>
-              <button
-                onClick={() => void handlePortal()}
-                disabled={actionLoading}
-                className="w-full py-3 px-4 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-medium text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {actionLoading ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> Redirigiendo...</>
-                ) : (
-                  <><ExternalLink className="w-4 h-4" /> Gestionar suscripción en Stripe</>
-                )}
-              </button>
+              {hasStripeCustomer ? (
+                <>
+                  <p className="text-sm text-slate-600">
+                    Gestioná tu suscripción, cambiá el método de pago o cancelá desde el portal de Stripe.
+                  </p>
+                  <button
+                    onClick={() => void handlePortal()}
+                    disabled={actionLoading}
+                    className="w-full py-3 px-4 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-medium text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {actionLoading ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Redirigiendo...</>
+                    ) : (
+                      <><ExternalLink className="w-4 h-4" /> Gestionar suscripción en Stripe</>
+                    )}
+                  </button>
+                </>
+              ) : (
+                <p className="text-sm text-slate-600">
+                  Tu plan Pro fue activado manualmente.{" "}
+                  <a href="mailto:hola@inboxchat.app" className="text-violet-600 hover:underline font-medium">
+                    Contactanos en hola@inboxchat.app
+                  </a>{" "}
+                  para gestionar tu suscripción.
+                </p>
+              )}
             </>
           ) : (
             <div className="space-y-4">
