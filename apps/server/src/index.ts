@@ -243,6 +243,10 @@ async function bootstrap() {
   // 13. Weekly summary cron — resumen semanal por email cada lunes 9am UTC
   const { startWeeklySummaryCron } = await import("./lib/weekly-summary-cron.js");
   void startWeeklySummaryCron(db);
+
+  // 14. Promo expiry cron — degrada a trial workspaces con promo expirada (cada 1h)
+  const { startPromoExpiryCron } = await import("./lib/promo-expiry-cron.js");
+  startPromoExpiryCron(db);
 }
 
 bootstrap().catch((err: unknown) => {

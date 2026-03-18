@@ -3,6 +3,7 @@ import type { Database } from "../db/client.js";
 import { extractTokenFromHeader, verifyToken } from "../lib/jwt.js";
 import { findWorkspaceByApiKey } from "../db/queries.js";
 import { getStripe } from "../lib/stripe.js";
+import { trackEvent } from "../lib/events.js";
 
 interface BillingPluginOptions {
   db: Database;
@@ -320,6 +321,11 @@ export async function billingRoutes(
               }).catch(() => {/* no bloquear el webhook si el email falla */});
             }
           }
+          // Tracking de conversión — el evento más importante del funnel
+          void trackEvent(db, workspaceId, "plan_upgraded", {
+            stripe_subscription_id: subscriptionId ?? null,
+            stripe_customer_id: customerId ?? null,
+          });
         }
       }
 
