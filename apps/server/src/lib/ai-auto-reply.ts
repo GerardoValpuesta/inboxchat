@@ -78,12 +78,12 @@ export async function startAiAutoReplyCron(
           w.ai_replies_reset_at,
           co.name                     AS contact_name,
           last_msg.created_at         AS last_visitor_msg_at,
-          last_msg.content            AS last_visitor_msg
+          last_msg.body               AS last_visitor_msg
         FROM conversations c
         JOIN workspaces w  ON w.id = c.workspace_id AND w.ai_enabled = TRUE
         JOIN contacts   co ON co.id = c.contact_id
         JOIN LATERAL (
-          SELECT created_at, content FROM messages m
+          SELECT created_at, body FROM messages m
           WHERE  m.conversation_id = c.id AND m.sender = 'contact'
           ORDER  BY created_at DESC
           LIMIT  1
@@ -176,7 +176,7 @@ Si la pregunta requiere un humano, decí: "Un agente te va a responder pronto."
 
         // Insertar el mensaje IA en DB
         const [inserted] = await db<{ id: string; created_at: string }[]>`
-          INSERT INTO messages (conversation_id, content, sender)
+          INSERT INTO messages (conversation_id, body, sender)
           VALUES (${conv.conv_id}, ${aiText}, 'bot')
           RETURNING id, created_at
         `;
@@ -210,7 +210,7 @@ Si la pregunta requiere un humano, decí: "Un agente te va a responder pronto."
           id: inserted.id,
           conversationId: conv.conv_id,
           workspaceId: conv.workspace_id,
-          content: aiText,
+          body: aiText,
           sender: "bot",
           createdAt: inserted.created_at,
           isAi: true,
