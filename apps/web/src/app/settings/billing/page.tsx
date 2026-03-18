@@ -215,32 +215,20 @@ export default function BillingPage() {
         <div className="p-6 space-y-3">
           {isPro ? (
             <>
-              {hasStripeCustomer ? (
-                <>
-                  <p className="text-sm text-slate-600">
-                    Gestioná tu suscripción, cambiá el método de pago o cancelá desde el portal de Stripe.
-                  </p>
-                  <button
-                    onClick={() => void handlePortal()}
-                    disabled={actionLoading}
-                    className="w-full py-3 px-4 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-medium text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {actionLoading ? (
-                      <><Loader2 className="w-4 h-4 animate-spin" /> Redirigiendo...</>
-                    ) : (
-                      <><ExternalLink className="w-4 h-4" /> Gestionar suscripción en Stripe</>
-                    )}
-                  </button>
-                </>
-              ) : (
-                <p className="text-sm text-slate-600">
-                  Tu plan Pro fue activado manualmente.{" "}
-                  <a href="mailto:hola@inboxchat.app" className="text-violet-600 hover:underline font-medium">
-                    Contactanos en hola@inboxchat.app
-                  </a>{" "}
-                  para gestionar tu suscripción.
-                </p>
-              )}
+              <p className="text-sm text-slate-600">
+                Gestioná tu suscripción, cambiá el método de pago o cancelá desde el portal de Stripe.
+              </p>
+              <button
+                onClick={() => void handlePortal()}
+                disabled={actionLoading}
+                className="w-full py-3 px-4 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-medium text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {actionLoading ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Redirigiendo...</>
+                ) : (
+                  <><ExternalLink className="w-4 h-4" /> Gestionar suscripción en Stripe</>
+                )}
+              </button>
             </>
           ) : (
             <div className="space-y-4">
@@ -316,13 +304,11 @@ export default function BillingPage() {
       <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 space-y-2">
         <p className="text-sm font-medium text-slate-700">¿Querés cancelar o gestionar tu suscripción?</p>
         <p className="text-xs text-slate-500">
-          {hasStripeCustomer
+          {isPro
             ? "Podés cancelar en cualquier momento desde el portal de Stripe. Tu acceso Pro se mantiene hasta el fin del período pagado."
-            : isPro
-            ? "Tu plan Pro fue activado manualmente. Para cancelar o gestionar tu plan, contactanos en hola@inboxchat.app."
             : "Estás en el período de prueba gratuita. No hay nada que cancelar — simplemente no hagas el upgrade cuando termine el trial."}
         </p>
-        {hasStripeCustomer && (
+        {isPro && (
           <>
             {portalError && (
               <p className="text-xs text-red-500">No se pudo abrir el portal. Escribínos a hola@inboxchat.app si el problema persiste.</p>

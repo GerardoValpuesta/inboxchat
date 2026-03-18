@@ -155,14 +155,28 @@ export async function billingRoutes(
     if (!workspaceId) return reply.status(401).send({ error: "No autorizado" });
 
     const webUrl = process.env["WEB_URL"] ?? "http://localhost:3000";
+    const stripe = getStripe();
+
+    // Obtener datos del workspace (email para crear customer si no existe)
     const billing = await getWorkspaceBilling(db, workspaceId);
-    if (!billing?.stripe_customer_id) {
-      return reply.status(400).send({ error: "No tenés una suscripción activa" });
+    let customerId = billing?.stripe_customer_id ?? undefined;
+
+    if (!customerId) {
+      // Crear customer en Stripe al vuelo — igual que el checkout
+      const workspace = await getWorkspaceInfo(db, workspaceId);
+      if (!workspace) return reply.status(404).send({ error: "Workspace no encontrado" });
+
+      const customer = await stripe.customers.create({
+        email: workspace.owner_email,
+        name: workspace.name,
+        metadata: { workspaceId },
+      });
+      customerId = customer.id;
+      await db`UPDATE workspaces SET stripe_customer_id = ${customerId} WHERE id = ${workspaceId}`;
     }
 
-    const stripe = getStripe();
     const session = await stripe.billingPortal.sessions.create({
-      customer: billing.stripe_customer_id,
+      customer: customerId,
       return_url: `${webUrl}/settings/billing`,
     });
 
