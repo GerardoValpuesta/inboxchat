@@ -24,9 +24,9 @@ interface AiConfig {
 }
 
 const TONES = [
-  { value: "friendly", label: "😊 Amable", desc: "Cálido y cercano, ideal para la mayoría de los casos." },
-  { value: "formal",   label: "👔 Formal",  desc: "Profesional y directo, para servicios B2B serios." },
-  { value: "casual",   label: "🤙 Casual",  desc: "Relajado y amigable, para productos de consumo." },
+  { value: "friendly", label: "Amable",   desc: "Cálido y cercano, ideal para la mayoría de los casos." },
+  { value: "formal",   label: "Formal",   desc: "Profesional y directo, para servicios B2B serios." },
+  { value: "casual",   label: "Casual",   desc: "Relajado y amigable, para productos de consumo." },
 ];
 
 export default function AiSettingsPage() {
@@ -122,7 +122,7 @@ export default function AiSettingsPage() {
       {!config.planSupportsAi && (
         <div className="rounded-xl bg-violet-50 border border-violet-200 p-5 flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="flex-1">
-            <p className="text-sm font-semibold text-violet-800">✨ Feature Pro</p>
+            <p className="text-sm font-semibold text-violet-800">Feature exclusiva del plan Pro</p>
             <p className="text-sm text-violet-700 mt-1">
               El AI Auto-Reply está disponible en el plan Pro ($29/mes).
               Incluye hasta 500 respuestas automáticas por mes.
@@ -279,7 +279,7 @@ export default function AiSettingsPage() {
       {/* Save status */}
       <div className="flex items-center justify-end gap-3 pt-2">
         {saving && <p className="text-xs text-slate-400">Guardando...</p>}
-        {saved && <p className="text-xs text-green-600 font-medium">✓ Guardado</p>}
+        {saved && <p className="text-xs text-green-600 font-medium">Guardado</p>}
       </div>
     </div>
   );
