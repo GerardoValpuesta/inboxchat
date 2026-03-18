@@ -19,6 +19,7 @@ import {
 import { sendNewConversationEmail } from "../lib/email.js";
 import { sendWebhookEvent } from "../routes/webhooks.routes.js";
 import { verifyToken } from "../lib/jwt.js";
+import { trackFirstEvent } from "../lib/events.js";
 
 
 type AppServer = Server<
@@ -242,25 +243,11 @@ export function registerSocketHandlers(io: AppServer, db: Database) {
         if (sender === "contact") {
           await incrementUnreadCount(db, conversationId);
 
-          // Tracking: first_message del workspace
-          void (async () => {
-            try {
-              const wsId = socket.data.workspaceId;
-              if (wsId) {
-                const [existing] = await db<{ total: number }[]>`
-                  SELECT COUNT(*)::int AS total FROM workspace_events
-                  WHERE workspace_id = ${wsId} AND event = 'first_message'
-                `;
-                if (!existing || existing.total === 0) {
-                  await db`
-                    INSERT INTO workspace_events (workspace_id, event, properties)
-                    VALUES (${wsId}, 'first_message', ${JSON.stringify({ conversation_id: conversationId })}::jsonb)
-                    ON CONFLICT DO NOTHING
-                  `;
-                }
-              }
-            } catch { /* non-fatal */ }
-          })();
+          // Tracking: first_message_received
+          const wsId = socket.data.workspaceId;
+          if (wsId) {
+            void trackFirstEvent(db, wsId, "first_message_received", { conversation_id: conversationId });
+          }
 
           try {
             const workspaceId = socket.data.workspaceId;
@@ -316,24 +303,12 @@ export function registerSocketHandlers(io: AppServer, db: Database) {
             sender,
           });
 
-          // Tracking: first_reply del operador
+          // Tracking: first_operator_reply — fire-and-forget
           if (sender === "operator") {
-            void (async () => {
-              try {
-                const wsId = socket.data.workspaceId!;
-                const [existing] = await db<{ total: number }[]>`
-                  SELECT COUNT(*)::int AS total FROM workspace_events
-                  WHERE workspace_id = ${wsId} AND event = 'first_reply'
-                `;
-                if (!existing || existing.total === 0) {
-                  await db`
-                    INSERT INTO workspace_events (workspace_id, event, properties)
-                    VALUES (${wsId}, 'first_reply', ${JSON.stringify({ conversation_id: conversationId })}::jsonb)
-                    ON CONFLICT DO NOTHING
-                  `;
-                }
-              } catch { /* non-fatal */ }
-            })();
+            void trackFirstEvent(db, socket.data.workspaceId, "first_operator_reply", {
+              conversation_id: conversationId,
+              operator_id: socket.data.operatorId ?? null,
+            });
           }
         }
 
