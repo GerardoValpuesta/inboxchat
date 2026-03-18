@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 const SERVER_URL =
@@ -9,6 +9,7 @@ const SERVER_URL =
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -41,7 +42,9 @@ export default function LoginPage() {
         localStorage.setItem("ic_token", data.token);
         // Cookie para el middleware de Next.js (que corre server-side)
         document.cookie = `ic_token=${data.token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
-        router.push("/inbox");
+        // Respetar el param ?from si viene del middleware (ej: /settings)
+        const from = searchParams.get("from") ?? "/inbox";
+        router.push(from);
       }
     } catch {
       setError("No se pudo conectar con el servidor");

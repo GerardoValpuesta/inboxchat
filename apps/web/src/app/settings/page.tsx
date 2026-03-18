@@ -90,8 +90,14 @@ export default function SettingsPage() {
       fetch(`${SERVER_URL}/api/workspace/me`, { headers: getAuthHeaders() as HeadersInit }),
     ])
       .then(async ([billingRes, meRes]) => {
-        if (!billingRes.ok || !meRes.ok) {
+        // Solo redirigir a login en 401, no en errores de red / 5xx
+        if (billingRes.status === 401 || meRes.status === 401) {
           router.push("/login");
+          return;
+        }
+        if (!billingRes.ok || !meRes.ok) {
+          // Error de servicio — no redirigir, mostramos la página vacía
+          setLoading(false);
           return;
         }
         const billing = await billingRes.json() as {
@@ -101,8 +107,15 @@ export default function SettingsPage() {
           isActive: boolean;
           conversationCount: number;
         };
+        // Leer meRes.json() UNA SOLA VEZ — el body se consume y no puede leerse dos veces
         const me = await meRes.json() as {
-          workspace: { name: string; ownerEmail: string; apiKey: string };
+          workspace: {
+            name: string;
+            ownerEmail: string;
+            apiKey: string;
+            businessHours?: Record<string, { open: string; close: string; enabled: boolean }> | null;
+            timezone?: string;
+          };
         };
         setInfo({
           name: me.workspace.name,
@@ -137,11 +150,10 @@ export default function SettingsPage() {
           const cannedData = await cannedRes.json() as { cannedResponses: typeof cannedResponses };
           setCannedResponses(cannedData.cannedResponses ?? []);
         }
-        // Cargar business hours desde workspace/me
-        const bhData = await meRes.clone().json().catch(() => null) as { workspace?: { businessHours?: unknown; timezone?: string } } | null;
-        const bhRaw = (await meRes.json().catch(() => null) as { workspace?: { businessHours?: Record<string, { open: string; close: string; enabled: boolean }> | null; timezone?: string } } | null)?.workspace;
+        // Business hours — extraer del me.workspace ya leído (no releer meRes)
+        const bhRaw = me.workspace;
         if (bhRaw?.businessHours) {
-          const bh = bhRaw.businessHours as Record<string, { open: string; close: string; enabled: boolean }>;
+          const bh = bhRaw.businessHours;
           setBhEnabled((bh as unknown as { enabled?: boolean }).enabled !== false);
           setBhDays((prev) => ({ ...prev, ...bh }));
           if ((bh as unknown as { offHoursMessage?: string }).offHoursMessage) {
@@ -156,7 +168,10 @@ export default function SettingsPage() {
           setWebhooks(whData.webhooks ?? []);
         }
       })
-      .catch(() => router.push("/login"))
+      .catch((err) => {
+        // Solo ir a login si hay un error específico de auth, no por errores de red
+        console.error("[Settings] fetch error:", err);
+      })
       .finally(() => setLoading(false));
   }, [router]);
 
