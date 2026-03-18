@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   MessageSquare, Sparkles, Bell, Key,
   Webhook, Tag, Zap, CreditCard, Globe, Users, MessageCircle,
-  ExternalLink, ChevronRight,
+  ExternalLink, ChevronRight, Pencil, Check, X,
 } from "lucide-react";
 
 const SERVER_URL =
@@ -45,6 +45,9 @@ export default function SettingsGeneralPage() {
   const [info, setInfo] = useState<WorkspaceInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState("");
+  const [savingName, setSavingName] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -89,6 +92,23 @@ export default function SettingsGeneralPage() {
     setTimeout(() => setCopied(false), 2000);
   }
 
+  async function saveName() {
+    if (!nameInput.trim() || nameInput === info?.name) { setEditingName(false); return; }
+    setSavingName(true);
+    try {
+      const res = await fetch(`${SERVER_URL}/api/workspace/me`, {
+        method: "PATCH",
+        headers: { ...(getAuthHeaders() as HeadersInit), "Content-Type": "application/json" },
+        body: JSON.stringify({ name: nameInput.trim() }),
+      });
+      if (res.ok) {
+        setInfo((prev) => prev ? { ...prev, name: nameInput.trim() } : prev);
+        setEditingName(false);
+      }
+    } catch (e) { console.error(e); }
+    finally { setSavingName(false); }
+  }
+
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -110,11 +130,34 @@ export default function SettingsGeneralPage() {
         <div className="space-y-3">
           <div className="flex items-center justify-between py-2 border-b border-slate-100">
             <div className="flex items-center gap-2 text-sm text-slate-500"><Globe className="w-4 h-4" />Nombre</div>
-            <span className="text-sm font-medium text-slate-900">{info?.name ?? "—"}</span>
+            {editingName ? (
+              <div className="flex items-center gap-1">
+                <input
+                  autoFocus
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") void saveName(); if (e.key === "Escape") setEditingName(false); }}
+                  className="text-sm border border-slate-300 rounded-lg px-2 py-1 w-40 focus:outline-none focus:ring-2 focus:ring-violet-300"
+                />
+                <button onClick={() => void saveName()} disabled={savingName} className="p-1 text-violet-600 hover:text-violet-800">
+                  <Check className="w-4 h-4" />
+                </button>
+                <button onClick={() => setEditingName(false)} className="p-1 text-slate-400 hover:text-slate-600">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-slate-900">{info?.name ?? "—"}</span>
+                <button onClick={() => { setNameInput(info?.name ?? ""); setEditingName(true); }} className="p-1 text-slate-400 hover:text-slate-600 rounded">
+                  <Pencil className="w-3 h-3" />
+                </button>
+              </div>
+            )}
           </div>
           <div className="flex items-center justify-between py-2 border-b border-slate-100">
             <div className="flex items-center gap-2 text-sm text-slate-500"><Users className="w-4 h-4" />Email del dueño</div>
-            <span className="text-sm font-medium text-slate-900">{info?.ownerEmail ?? "—"}</span>
+            <span className="text-sm font-medium text-slate-900">{info?.ownerEmail || "(no configurado)"}</span>
           </div>
           <div className="flex items-center justify-between py-2 border-b border-slate-100">
             <div className="flex items-center gap-2 text-sm text-slate-500"><MessageCircle className="w-4 h-4" />Conversaciones</div>

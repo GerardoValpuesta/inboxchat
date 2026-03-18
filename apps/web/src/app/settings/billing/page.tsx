@@ -222,25 +222,29 @@ export default function BillingPage() {
         </div>
       </div>
 
-      {/* Sección cancelar — visible solo con suscripción Stripe activa */}
+      {/* Sección cancelar */}
       <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 space-y-2">
         <p className="text-sm font-medium text-slate-700">¿Querés cancelar o gestionar tu suscripción?</p>
         <p className="text-xs text-slate-500">
           {hasStripeSubscription
             ? "Podés cancelar en cualquier momento desde el portal de Stripe. Tu acceso Pro se mantiene hasta el fin del período pagado."
+            : isPro
+            ? "Tu plan Pro fue activado manualmente. Para cancelar o gestionar tu plan, contactános en hola@inboxchat.app."
             : "Estás en el período de prueba gratuita. No hay nada que cancelar — simplemente no hagas el upgrade cuando termine el trial."}
         </p>
-        {portalError && (
-          <p className="text-xs text-red-500">No se pudo abrir el portal. Escribinos a hola@inboxchat.app si el problema persiste.</p>
-        )}
         {hasStripeSubscription && (
-          <button
-            onClick={() => void handlePortal()}
-            disabled={actionLoading}
-            className="text-xs text-red-500 hover:text-red-700 underline transition-colors disabled:opacity-50"
-          >
-            Cancelar suscripción →
-          </button>
+          <>
+            {portalError && (
+              <p className="text-xs text-red-500">No se pudo abrir el portal. Escribínos a hola@inboxchat.app si el problema persiste.</p>
+            )}
+            <button
+              onClick={() => void handlePortal()}
+              disabled={actionLoading}
+              className="text-xs text-red-500 hover:text-red-700 underline transition-colors disabled:opacity-50"
+            >
+              Cancelar suscripción →
+            </button>
+          </>
         )}
       </div>
 
