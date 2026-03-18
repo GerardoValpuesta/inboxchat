@@ -70,7 +70,7 @@ export async function workspaceRoutes(
   });
 
   // PATCH /api/workspace/me — actualizar configuración
-  app.patch<{ Body: { slaMinutes?: number; businessHours?: unknown; timezone?: string } }>(
+  app.patch<{ Body: { name?: string; ownerEmail?: string; slaMinutes?: number; businessHours?: unknown; timezone?: string } }>(
     "/api/workspace/me",
     async (request, reply) => {
       const workspaceId = await resolveWorkspaceId(
@@ -78,7 +78,17 @@ export async function workspaceRoutes(
       );
       if (!workspaceId) return reply.status(401).send({ error: "No autenticado" });
 
-      const { slaMinutes, businessHours, timezone } = request.body;
+      const { name, ownerEmail, slaMinutes, businessHours, timezone } = request.body;
+      if (name !== undefined && typeof name === 'string' && name.trim()) {
+        await db`UPDATE workspaces SET name = ${name.trim()} WHERE id = ${workspaceId}`;
+      }
+      if (ownerEmail !== undefined && typeof ownerEmail === 'string') {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(ownerEmail)) {
+          return reply.status(400).send({ error: 'Email inválido' });
+        }
+        await db`UPDATE workspaces SET owner_email = ${ownerEmail.trim()} WHERE id = ${workspaceId}`;
+      }
       if (slaMinutes !== undefined) {
         const mins = Math.max(1, Math.min(Number(slaMinutes), 480));
         await db`UPDATE workspaces SET sla_minutes = ${mins} WHERE id = ${workspaceId}`;

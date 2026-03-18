@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle, ExternalLink, Loader2, X } from "lucide-react";
+import { CheckCircle, ExternalLink, Loader2, Gift, XCircle } from "lucide-react";
 
 const SERVER_URL =
   process.env["NEXT_PUBLIC_SERVER_URL"] ?? "http://localhost:3001";
@@ -30,6 +30,11 @@ export default function BillingPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [portalError, setPortalError] = useState(false);
+  const [promoCode, setPromoCode] = useState("");
+  const [promoLoading, setPromoLoading] = useState(false);
+  const [promoSuccess, setPromoSuccess] = useState("");
+  const [promoError, setPromoError] = useState("");
+  const [activePromo, setActivePromo] = useState<{ code: string; proUntil: string } | null>(null);
 
   const searchParams =
     typeof window !== "undefined"
@@ -39,11 +44,19 @@ export default function BillingPage() {
   const canceled = searchParams?.get("canceled") === "1";
 
   useEffect(() => {
-    fetch(`${SERVER_URL}/api/billing/status`, {
-      headers: getAuthHeaders() as HeadersInit,
-    })
-      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
-      .then((data: BillingStatus) => setStatus(data))
+    Promise.all([
+      fetch(`${SERVER_URL}/api/billing/status`, { headers: getAuthHeaders() as HeadersInit }),
+      fetch(`${SERVER_URL}/api/promo/status`, { headers: getAuthHeaders() as HeadersInit }),
+    ])
+      .then(async ([billingRes, promoRes]) => {
+        if (!billingRes.ok) throw new Error("billing");
+        const data = await billingRes.json() as BillingStatus;
+        setStatus(data);
+        if (promoRes.ok) {
+          const promoData = await promoRes.json() as { hasPromo: boolean; code: string; proUntil: string; isActive: boolean };
+          if (promoData.isActive) setActivePromo({ code: promoData.code, proUntil: promoData.proUntil });
+        }
+      })
       .catch(() => router.push(`/login?from=${encodeURIComponent(window.location.pathname)}`))
       .finally(() => setLoading(false));
   }, [router]);
@@ -85,6 +98,32 @@ export default function BillingPage() {
     }
   }
 
+  async function redeemPromo() {
+    if (!promoCode.trim()) return;
+    setPromoLoading(true); setPromoError(""); setPromoSuccess("");
+    try {
+      const res = await fetch(`${SERVER_URL}/api/promo/redeem`, {
+        method: "POST",
+        headers: { ...(getAuthHeaders() as HeadersInit), "Content-Type": "application/json" },
+        body: JSON.stringify({ code: promoCode.trim() }),
+      });
+      const data = await res.json() as { ok?: boolean; message?: string; error?: string; proUntil?: string };
+      if (res.ok && data.ok) {
+        setPromoSuccess(data.message ?? "¡Código canjeado!");
+        setPromoCode("");
+        if (data.proUntil) setActivePromo({ code: promoCode.trim().toUpperCase(), proUntil: data.proUntil });
+        const br = await fetch(`${SERVER_URL}/api/billing/status`, { headers: getAuthHeaders() as HeadersInit });
+        if (br.ok) setStatus(await br.json() as BillingStatus);
+      } else {
+        setPromoError(data.error ?? "Error al canjear el código");
+      }
+    } catch {
+      setPromoError("Error de red. Intentá de nuevo.");
+    } finally {
+      setPromoLoading(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50">
@@ -122,7 +161,7 @@ export default function BillingPage() {
       )}
       {canceled && (
         <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-sm flex items-center gap-2">
-          <X className="w-4 h-4 flex-shrink-0" />
+          <XCircle className="w-4 h-4 flex-shrink-0" />
           Cancelaste el proceso de pago. Podés intentarlo cuando quieras.
         </div>
       )}
@@ -220,6 +259,44 @@ export default function BillingPage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Sección código de acceso */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4 mb-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Gift className="w-4 h-4 text-violet-500" />
+          <p className="text-sm font-semibold text-slate-800">Código de acceso</p>
+        </div>
+        {activePromo ? (
+          <div className="p-3 rounded-lg bg-violet-50 border border-violet-200 text-sm text-violet-700">
+            <span className="font-semibold">Código activo: {activePromo.code}</span>
+            <span className="text-violet-500 ml-2">
+              · Vence {new Date(activePromo.proUntil).toLocaleDateString("es-AR", { day: "2-digit", month: "long", year: "numeric" })}
+            </span>
+          </div>
+        ) : (
+          <>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={promoCode}
+                onChange={(e) => { setPromoCode(e.target.value.toUpperCase()); setPromoError(""); setPromoSuccess(""); }}
+                onKeyDown={(e) => { if (e.key === "Enter") void redeemPromo(); }}
+                placeholder="CODIGO123"
+                className="flex-1 text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-300 font-mono uppercase"
+              />
+              <button
+                onClick={() => void redeemPromo()}
+                disabled={promoLoading || !promoCode.trim()}
+                className="text-sm px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 transition-colors font-medium"
+              >
+                {promoLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Canjear"}
+              </button>
+            </div>
+            {promoSuccess && <p className="text-xs text-emerald-600 mt-2 font-medium">{promoSuccess}</p>}
+            {promoError && <p className="text-xs text-red-500 mt-2">{promoError}</p>}
+          </>
+        )}
       </div>
 
       {/* Sección cancelar */}

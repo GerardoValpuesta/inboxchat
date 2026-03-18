@@ -48,6 +48,10 @@ export default function SettingsGeneralPage() {
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState("");
   const [savingName, setSavingName] = useState(false);
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
+  const [savingEmail, setSavingEmail] = useState(false);
+  const [emailError, setEmailError] = useState("");
 
   useEffect(() => {
     Promise.all([
@@ -109,6 +113,29 @@ export default function SettingsGeneralPage() {
     finally { setSavingName(false); }
   }
 
+  async function saveEmail() {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailInput.trim()) { setEditingEmail(false); return; }
+    if (!emailRegex.test(emailInput)) { setEmailError("Email inválido"); return; }
+    if (emailInput === info?.ownerEmail) { setEditingEmail(false); return; }
+    setSavingEmail(true); setEmailError("");
+    try {
+      const res = await fetch(`${SERVER_URL}/api/workspace/me`, {
+        method: "PATCH",
+        headers: { ...(getAuthHeaders() as HeadersInit), "Content-Type": "application/json" },
+        body: JSON.stringify({ ownerEmail: emailInput.trim() }),
+      });
+      if (res.ok) {
+        setInfo((prev) => prev ? { ...prev, ownerEmail: emailInput.trim() } : prev);
+        setEditingEmail(false);
+      } else {
+        const d = await res.json() as { error?: string };
+        setEmailError(d.error ?? "Error al guardar");
+      }
+    } catch (e) { console.error(e); setEmailError("Error de red"); }
+    finally { setSavingEmail(false); }
+  }
+
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -157,7 +184,35 @@ export default function SettingsGeneralPage() {
           </div>
           <div className="flex items-center justify-between py-2 border-b border-slate-100">
             <div className="flex items-center gap-2 text-sm text-slate-500"><Users className="w-4 h-4" />Email del dueño</div>
-            <span className="text-sm font-medium text-slate-900">{info?.ownerEmail || "(no configurado)"}</span>
+            {editingEmail ? (
+              <div className="flex flex-col items-end gap-1">
+                <div className="flex items-center gap-1">
+                  <input
+                    autoFocus
+                    type="email"
+                    value={emailInput}
+                    onChange={(e) => { setEmailInput(e.target.value); setEmailError(""); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") void saveEmail(); if (e.key === "Escape") setEditingEmail(false); }}
+                    className="text-sm border border-slate-300 rounded-lg px-2 py-1 w-48 focus:outline-none focus:ring-2 focus:ring-violet-300"
+                    placeholder="tu@empresa.com"
+                  />
+                  <button onClick={() => void saveEmail()} disabled={savingEmail} className="p-1 text-violet-600 hover:text-violet-800">
+                    <Check className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => { setEditingEmail(false); setEmailError(""); }} className="p-1 text-slate-400 hover:text-slate-600">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                {emailError && <p className="text-xs text-red-500">{emailError}</p>}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-slate-900">{info?.ownerEmail || "(no configurado)"}</span>
+                <button onClick={() => { setEmailInput(info?.ownerEmail ?? ""); setEditingEmail(true); setEmailError(""); }} className="p-1 text-slate-400 hover:text-slate-600 rounded">
+                  <Pencil className="w-3 h-3" />
+                </button>
+              </div>
+            )}
           </div>
           <div className="flex items-center justify-between py-2 border-b border-slate-100">
             <div className="flex items-center gap-2 text-sm text-slate-500"><MessageCircle className="w-4 h-4" />Conversaciones</div>
