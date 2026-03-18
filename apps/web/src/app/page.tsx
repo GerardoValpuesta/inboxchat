@@ -1,12 +1,11 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import Script from "next/script";
-import type React from "react";
 
 export const metadata: Metadata = {
-  title: "InboxChat — Chat en vivo para founders de SaaS",
+  title: "InboxChat — Chat en vivo para tu SaaS. $29/mes.",
   description:
-    "Intercom cobra $74/mes. InboxChat cuesta $29. Una línea de código. Chat en vivo para los primeros 1000 clientes de tu SaaS. Trial gratuito de 14 días, sin tarjeta.",
+    "Intercom cobra $74/mes. InboxChat cuesta $29. Una línea de código. Chat en vivo, AI auto-reply, SLA alerts y CSAT. Trial gratuito 14 días, sin tarjeta.",
 };
 
 const jsonLd = {
@@ -15,67 +14,43 @@ const jsonLd = {
   name: "InboxChat",
   applicationCategory: "BusinessApplication",
   operatingSystem: "Web",
-  description: "Chat en vivo para founders de SaaS. Setup en 2 minutos, $29/mes.",
+  description: "Chat en vivo para SaaS. Setup en 2 minutos, $29/mes.",
   url: "https://inboxchat.app",
-  offers: {
-    "@type": "Offer",
-    price: "29",
-    priceCurrency: "USD",
-    description: "Plan Pro — conversaciones ilimitadas",
-  },
+  offers: { "@type": "Offer", price: "29", priceCurrency: "USD" },
 };
 
-const S: Record<string, React.CSSProperties> = {
-  page: {
-    fontFamily: "-apple-system, 'Inter', BlinkMacSystemFont, 'Segoe UI', sans-serif",
-    color: "#0f172a",
-    background: "#fff",
+const BENEFITS = [
+  {
+    icon: "⚡",
+    title: "Online en 2 minutos",
+    body: "Pegás 2 líneas de código en tu <head> y tu chat está live. No hay nada que configurar, compilar ni desplegar.",
   },
-  container: { maxWidth: "1080px", margin: "0 auto", padding: "0 24px" },
-  nav: {
-    position: "sticky",
-    top: 0,
-    zIndex: 50,
-    background: "rgba(255,255,255,0.93)",
-    backdropFilter: "blur(12px)",
-    borderBottom: "1px solid #e2e8f0",
+  {
+    icon: "🤖",
+    title: "IA responde por vos",
+    body: "Gemini Flash contesta a tus usuarios mientras dormís. Vos definís el tono y el contexto del negocio.",
   },
-  navInner: {
-    maxWidth: "1080px",
-    margin: "0 auto",
-    padding: "0 24px",
-    height: "60px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
+  {
+    icon: "⏰",
+    title: "Cero conversaciones perdidas",
+    body: "Los SLA alerts te disparan un email si un usuario espera más de X minutos. Nunca más pierdes una venta caliente.",
   },
-  btnPrimary: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "6px",
-    background: "linear-gradient(135deg,#7c3aed 0%,#4f46e5 100%)",
-    color: "white",
-    padding: "13px 26px",
-    borderRadius: "10px",
-    textDecoration: "none",
-    fontWeight: 700,
-    fontSize: "15px",
-    boxShadow: "0 4px 18px rgba(124,58,237,0.35)",
+  {
+    icon: "📊",
+    title: "Analytics que importan",
+    body: "Tasa de respuesta, tiempo medio, CSAT y heatmap de actividad. Todo lo que necesitás para mejorar tu soporte.",
   },
-  btnSecondary: {
-    display: "inline-flex",
-    alignItems: "center",
-    padding: "13px 26px",
-    borderRadius: "10px",
-    textDecoration: "none",
-    fontWeight: 600,
-    fontSize: "15px",
-    color: "#374151",
-    background: "white",
-    border: "1px solid #e2e8f0",
-    boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
+  {
+    icon: "🌐",
+    title: "Funciona en cualquier stack",
+    body: "React, Vue, Next.js, WordPress, Webflow. Si corre en un browser, InboxChat funciona ahí.",
   },
-};
+  {
+    icon: "🔒",
+    title: "Tus datos, seguros",
+    body: "Row Level Security en Supabase. Webhooks con firma HMAC-SHA256. Nunca compartimos tu data con terceros.",
+  },
+];
 
 const TESTIMONIALS = [
   {
@@ -83,218 +58,405 @@ const TESTIMONIALS = [
     author: "Martín R.",
     role: "Founder, SaaS B2B",
     avatar: "M",
-    color: "#7c3aed",
+    color: "from-violet-500 to-purple-600",
   },
   {
-    quote: "Estaba pagando $74/mes por Intercom y usando el 10% de sus features. InboxChat hace exactamente lo que necesito: chat en vivo, simple.",
+    quote: "Estaba pagando $74/mes por Intercom y usando el 10% de sus features. InboxChat hace exactamente lo que necesito.",
     author: "Carolina V.",
     role: "CEO, EdTech startup",
     avatar: "C",
-    color: "#0891b2",
+    color: "from-cyan-500 to-blue-600",
   },
   {
-    quote: "Los SLA alerts me salvan. Si un usuario espera más de 10 minutos sin respuesta, me llega un email. Nunca más pierdo una conversación caliente.",
+    quote: "Los SLA alerts me salvan. Si un usuario espera más de 10 minutos me llega un email. Nunca más pierdo una conversación caliente.",
     author: "Diego M.",
     role: "Indie hacker",
     avatar: "D",
-    color: "#059669",
+    color: "from-emerald-500 to-teal-600",
+  },
+];
+
+const PLANS = [
+  {
+    name: "Free",
+    price: "$0",
+    period: "/ mes",
+    desc: "Para validar tu idea",
+    features: ["100 conversaciones/mes", "1 operador", "Widget personalizable", "Chat en tiempo real"],
+    cta: "Empezar gratis",
+    href: "/signup",
+    highlight: false,
+  },
+  {
+    name: "Pro",
+    price: "$29",
+    period: "/ mes",
+    desc: "Para founders que escalan",
+    badge: "Más popular",
+    features: [
+      "Conversaciones ilimitadas",
+      "5 operadores",
+      "AI Auto-Reply (Gemini Flash)",
+      "SLA alerts por email",
+      "Resumen semanal automático",
+      "CSAT & analytics",
+      "Webhooks + API REST",
+      "Filtros y asignación",
+    ],
+    cta: "Probar 14 días gratis",
+    href: "/signup",
+    highlight: true,
+  },
+  {
+    name: "Growth",
+    price: "$79",
+    period: "/ mes",
+    desc: "Para equipos en crecimiento",
+    features: [
+      "Todo lo de Pro",
+      "Operadores ilimitados",
+      "2.000 AI replies/mes",
+      "Soporte prioritario",
+      "Onboarding en vivo",
+    ],
+    cta: "Contactar ventas",
+    href: "mailto:hola@inboxchat.app",
+    highlight: false,
   },
 ];
 
 const FAQ = [
   {
     q: "¿Funciona en cualquier web?",
-    a: "Sí. Dos líneas de JavaScript en tu <head>. Funciona en React, Vue, Next.js, WordPress, Webflow, o cualquier stack.",
+    a: "Sí. Dos líneas de JavaScript en tu <head>. Funciona en React, Vue, Next.js, WordPress, Webflow o cualquier stack.",
+  },
+  {
+    q: "¿Qué tan difícil es la instalación?",
+    a: "Menos de 2 minutos. Copiás tu snippet del dashboard, lo pegás antes del </head> de tu sitio y listo. El widget aparece en todas las páginas automáticamente.",
   },
   {
     q: "¿Puedo cancelar en cualquier momento?",
-    a: "Sí, sin permanencia ni penalidades. Cancelás desde Settings → Billing con un click.",
+    a: "Sí, sin permanencia ni penalidades. Cancelás desde Settings → Billing con un click. Sin emails de retención.",
   },
   {
-    q: "¿Qué pasa si supero las 100 conversaciones del plan Free?",
-    a: "El widget sigue funcionando pero el inbox muestra un aviso de upgrade. No se pierden mensajes.",
+    q: "¿Qué pasa al superar los límites del Free?",
+    a: "El widget sigue funcionando, el inbox muestra un aviso de upgrade. No se pierden mensajes, nunca.",
+  },
+  {
+    q: "¿Funciona la IA sin que yo esté conectado?",
+    a: "Exacto. El AI Auto-Reply corre cada minuto en el servidor. Detecta conversaciones sin respuesta del operador y contesta en tu nombre con el tono y contexto que vos configuraste.",
   },
   {
     q: "¿Hay API para integraciones con Zapier / Make?",
-    a: "Sí. El plan Pro incluye la REST API completa con tu API Key. También hay webhooks salientes con firma HMAC-SHA256.",
-  },
-  {
-    q: "¿Puedo invitar a mi equipo?",
-    a: "Sí. El plan Pro soporta hasta 5 operadores. Podés asignar conversaciones y ver filtros Mías / Sin asignar / Todas.",
+    a: "Sí. El plan Pro incluye la REST API completa con tu API Key y webhooks salientes con firma HMAC-SHA256.",
   },
 ];
 
 export default function LandingPage() {
   return (
-    <div style={S.page}>
-      {/* ─── Nav ──────────────────────────────────────────────────────── */}
-      <nav style={S.nav}>
-        <div style={S.navInner}>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <div style={{
-              width: "32px", height: "32px", borderRadius: "8px",
-              background: "linear-gradient(135deg,#7c3aed,#4f46e5)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}>
-              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth="2">
+    <div className="min-h-screen bg-white font-sans antialiased">
+      <Script
+        id="json-ld"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+
+      {/* ─── NAV ──────────────────────────────────────────────────────────── */}
+      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-100">
+        <nav className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2.5 group">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center shadow-md shadow-violet-200">
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth="2.2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
             </div>
-            <span style={{ fontWeight: 700, fontSize: "16px" }}>InboxChat</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-            <Link href="/pricing" style={{ fontSize: "14px", color: "#64748b", textDecoration: "none", fontWeight: 500 }}>Precios</Link>
-            <Link href="/login" style={{ fontSize: "14px", color: "#64748b", textDecoration: "none", fontWeight: 500 }}>Iniciar sesión</Link>
-            <Link href="/signup" style={{
-              fontSize: "14px", fontWeight: 600, color: "white", textDecoration: "none",
-              background: "linear-gradient(135deg,#7c3aed,#4f46e5)",
-              padding: "8px 18px", borderRadius: "8px",
-              boxShadow: "0 2px 8px rgba(124,58,237,0.3)",
-            }}>Empezar gratis</Link>
-          </div>
-        </div>
-      </nav>
+            <span className="font-bold text-slate-900 text-[15px] tracking-tight">InboxChat</span>
+          </Link>
 
-      {/* ─── Hero ─────────────────────────────────────────────────────── */}
-      <section style={{
-        background: "linear-gradient(135deg,#faf5ff 0%,#eff6ff 50%,#f0fdf4 100%)",
-        padding: "88px 24px 100px", textAlign: "center",
-      }}>
-        <div style={{ maxWidth: "720px", margin: "0 auto" }}>
-          <div style={{
-            display: "inline-flex", alignItems: "center", gap: "6px",
-            background: "rgba(124,58,237,0.08)", border: "1px solid rgba(124,58,237,0.2)",
-            borderRadius: "100px", padding: "4px 14px",
-            fontSize: "12px", fontWeight: 600, color: "#7c3aed", marginBottom: "28px",
-          }}>
-            <span>✨</span>
-            <span>Trial gratuito 14 días · Sin tarjeta · 2 min setup</span>
+          <div className="hidden md:flex items-center gap-8">
+            <Link href="#beneficios" className="text-sm text-slate-500 hover:text-slate-900 transition-colors font-medium">Beneficios</Link>
+            <Link href="#precios" className="text-sm text-slate-500 hover:text-slate-900 transition-colors font-medium">Precios</Link>
+            <Link href="#faq" className="text-sm text-slate-500 hover:text-slate-900 transition-colors font-medium">FAQ</Link>
           </div>
 
-          <h1 style={{
-            fontSize: "clamp(38px,6vw,62px)", fontWeight: 800, lineHeight: 1.08,
-            letterSpacing: "-1.5px", marginBottom: "20px",
-          }}>
-            El chat en vivo para los{" "}
-            <span style={{
-              background: "linear-gradient(135deg,#7c3aed,#4f46e5)",
-              WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-            }}>
-              primeros 1000 clientes
-            </span>{" "}
-            de tu SaaS
+          <div className="flex items-center gap-3">
+            <Link href="/login" className="text-sm text-slate-500 hover:text-slate-900 transition-colors font-medium hidden sm:block">
+              Iniciar sesión
+            </Link>
+            <Link
+              href="/signup"
+              className="text-sm font-semibold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 px-4 py-2 rounded-lg shadow-md shadow-violet-200/50 transition-all hover:shadow-lg hover:shadow-violet-300/50 hover:-translate-y-px"
+            >
+              Empezar gratis
+            </Link>
+          </div>
+        </nav>
+      </header>
+
+      {/* ─── HERO ─────────────────────────────────────────────────────────── */}
+      <section className="relative overflow-hidden bg-gradient-to-b from-slate-50 via-white to-white pt-20 pb-28 px-6">
+        {/* Background glows */}
+        <div className="absolute top-0 left-1/3 w-96 h-96 bg-violet-300/20 rounded-full blur-3xl -translate-y-1/2 pointer-events-none" />
+        <div className="absolute top-20 right-1/4 w-80 h-80 bg-indigo-300/15 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="max-w-4xl mx-auto text-center relative">
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 bg-violet-50 border border-violet-200 rounded-full px-4 py-1.5 mb-8">
+            <span className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-pulse" />
+            <span className="text-xs font-semibold text-violet-700">Trial gratuito 14 días · Sin tarjeta · Setup 2 min</span>
+          </div>
+
+          {/* Headline */}
+          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight leading-[1.06] mb-6 text-slate-900">
+            El chat en vivo que{" "}
+            <span className="bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
+              Intercom nunca fue
+            </span>
+            <br />para tu SaaS
           </h1>
 
-          <p style={{
-            fontSize: "19px", color: "#475569", lineHeight: 1.65,
-            maxWidth: "540px", margin: "0 auto 16px",
-          }}>
-            Intercom cobra $74/mes. InboxChat cuesta <strong>$29</strong>.
-            Una sola línea de código. Responde a tus usuarios en tiempo real desde el primer día.
+          {/* Subheadline */}
+          <p className="text-xl text-slate-500 leading-relaxed max-w-2xl mx-auto mb-10">
+            Intercom cobra <span className="line-through text-slate-400">$74</span>/mes y te cobra por feature.
+            InboxChat es <strong className="text-slate-700">$29/mes</strong>, todo incluido.
+            Responde a tus usuarios en tiempo real —{" "}
+            <span className="text-slate-700 font-medium">o deja que la IA lo haga por vos.</span>
           </p>
 
-          {/* Install snippet */}
-          <div style={{
-            display: "inline-flex", alignItems: "center", gap: "10px",
-            background: "#1e293b", borderRadius: "10px",
-            padding: "10px 16px", marginBottom: "36px",
-            fontSize: "13px", fontFamily: "monospace", color: "#94a3b8",
-          }}>
-            <span style={{ color: "#64748b" }}>{"<script>"}</span>
-            <span style={{ color: "#7dd3fc" }}>{"window.InboxChat = { workspaceKey: 'TU_KEY' }"}</span>
-            <span style={{ color: "#64748b" }}>{"</script>"}</span>
+          {/* CTAs */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
+            <Link
+              href="/signup"
+              className="inline-flex items-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold text-base px-8 py-4 rounded-xl shadow-xl shadow-violet-300/40 transition-all hover:-translate-y-0.5 hover:shadow-2xl hover:shadow-violet-400/40"
+            >
+              Empezar gratis — 14 días
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+            </Link>
+            <Link
+              href="#precios"
+              className="inline-flex items-center gap-2 text-slate-600 hover:text-slate-900 font-semibold text-base px-6 py-4 rounded-xl border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 transition-all"
+            >
+              Ver precios
+            </Link>
           </div>
 
-          <div style={{ display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap", marginBottom: "60px" }}>
-            <Link href="/signup" style={S.btnPrimary}>Empezar gratis →</Link>
-            <Link href="/signup" style={S.btnSecondary}>Ver demo en vivo 🎥</Link>
-          </div>
+          {/* Trust bar */}
+          <p className="text-xs text-slate-400 font-medium mb-2">Sin tarjeta de crédito · Cancelá cuando quieras</p>
 
-          {/* Widget mockup */}
-          <div style={{
-            background: "white", borderRadius: "20px",
-            boxShadow: "0 16px 56px rgba(0,0,0,0.13)", border: "1px solid #e2e8f0",
-            overflow: "hidden", maxWidth: "360px", margin: "0 auto",
-          }}>
-            <div style={{ background: "#1e293b", padding: "14px 16px", display: "flex", alignItems: "center", gap: "10px" }}>
-              <div style={{ width: "34px", height: "34px", background: "#334155", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "14px", color: "white", fontWeight: 600 }}>S</div>
-              <div>
-                <div style={{ color: "white", fontSize: "13px", fontWeight: 600 }}>Soporte</div>
-                <div style={{ color: "#22c55e", fontSize: "11px", display: "flex", alignItems: "center", gap: "4px" }}>
-                  <span style={{ width: "6px", height: "6px", background: "#22c55e", borderRadius: "50%", display: "inline-block" }} />
-                  En línea
+          {/* Code snippet */}
+          <div className="inline-flex items-center gap-3 bg-slate-900 rounded-xl px-5 py-3 mt-6">
+            <span className="text-slate-500 text-xs font-mono select-none">→</span>
+            <code className="text-emerald-400 text-sm font-mono">
+              {`<script src="inboxchat.app/widget.js" defer></script>`}
+            </code>
+            <span className="bg-slate-700 text-slate-400 text-[10px] font-semibold px-2 py-0.5 rounded">COPY</span>
+          </div>
+        </div>
+
+        {/* Mock inbox UI */}
+        <div className="max-w-5xl mx-auto mt-16 px-4">
+          <div className="bg-white rounded-2xl shadow-2xl shadow-slate-200/80 border border-slate-200 overflow-hidden">
+            {/* Window chrome */}
+            <div className="bg-slate-100 border-b border-slate-200 px-4 py-3 flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-red-400" />
+              <div className="w-3 h-3 rounded-full bg-amber-400" />
+              <div className="w-3 h-3 rounded-full bg-emerald-400" />
+              <div className="flex-1 mx-4">
+                <div className="bg-white rounded-md px-3 py-1 text-xs text-slate-400 border border-slate-200 max-w-[240px] mx-auto text-center">
+                  inboxchat-web.vercel.app/inbox
                 </div>
               </div>
             </div>
-            <div style={{ background: "#f8fafc", padding: "16px", display: "flex", flexDirection: "column", gap: "10px" }}>
-              <div style={{ background: "white", borderRadius: "12px 12px 12px 4px", padding: "10px 14px", fontSize: "13px", color: "#1e293b", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", maxWidth: "80%", alignSelf: "flex-start" }}>
-                ¡Hola! 👋 ¿En qué te puedo ayudar?
+            {/* Inbox UI preview */}
+            <div className="grid grid-cols-12 h-64 sm:h-80">
+              {/* Sidebar */}
+              <div className="col-span-4 border-r border-slate-100 bg-slate-50 p-3 space-y-2 overflow-hidden">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                  <span className="text-xs font-semibold text-slate-600">Inbox · 3 nuevos</span>
+                </div>
+                {[
+                  { name: "Ana García", msg: "¿Tienen soporte en español?", time: "1m", unread: true, color: "bg-violet-500" },
+                  { name: "Carlos Lima", msg: "El pago no me está pasando", time: "5m", unread: true, color: "bg-blue-500" },
+                  { name: "Sofía Ruiz", msg: "Perfecto, muchas gracias!", time: "12m", unread: false, color: "bg-emerald-500" },
+                  { name: "Pedro M.", msg: "¿Puedo exportar mis datos?", time: "1h", unread: false, color: "bg-orange-500" },
+                ].map((conv) => (
+                  <div key={conv.name} className={`flex items-center gap-2.5 p-2 rounded-lg ${conv.unread ? "bg-white shadow-sm border border-slate-200" : ""}`}>
+                    <div className={`w-7 h-7 rounded-full ${conv.color} flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0`}>
+                      {conv.name[0]}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[11px] font-semibold text-slate-700 truncate">{conv.name}</span>
+                        <span className="text-[9px] text-slate-400 flex-shrink-0 ml-1">{conv.time}</span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 truncate">{conv.msg}</p>
+                    </div>
+                    {conv.unread && <div className="w-1.5 h-1.5 rounded-full bg-violet-500 flex-shrink-0" />}
+                  </div>
+                ))}
               </div>
-              <div style={{ background: "#1e293b", borderRadius: "12px 12px 4px 12px", padding: "10px 14px", fontSize: "13px", color: "white", maxWidth: "80%", alignSelf: "flex-end" }}>
-                ¿Tienen plan para startups?
-              </div>
-              <div style={{ background: "white", borderRadius: "12px 12px 12px 4px", padding: "10px 14px", fontSize: "13px", color: "#1e293b", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", maxWidth: "85%", alignSelf: "flex-start" }}>
-                ¡Sí! $29/mes, conversaciones ilimitadas, setup en 2 minutos 🚀
-              </div>
-            </div>
-            <div style={{ padding: "12px", borderTop: "1px solid #e2e8f0", display: "flex", gap: "8px", background: "white" }}>
-              <div style={{ flex: 1, border: "1px solid #e2e8f0", borderRadius: "8px", padding: "8px 12px", fontSize: "13px", color: "#94a3b8" }}>Escribí tu mensaje...</div>
-              <div style={{ width: "36px", height: "36px", background: "#1e293b", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <svg width="14" height="14" fill="none" stroke="white" viewBox="0 0 24 24" strokeWidth="2.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
-                </svg>
+
+              {/* Chat panel */}
+              <div className="col-span-8 flex flex-col">
+                <div className="border-b border-slate-100 px-4 py-2.5 flex items-center gap-3">
+                  <div className="w-7 h-7 rounded-full bg-violet-500 flex items-center justify-center text-white text-xs font-bold">A</div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-800">Ana García</p>
+                    <p className="text-[10px] text-slate-400">En línea</p>
+                  </div>
+                </div>
+                <div className="flex-1 p-4 space-y-3 overflow-hidden">
+                  <div className="flex justify-start">
+                    <div className="bg-slate-100 rounded-2xl rounded-bl-sm px-3 py-2 max-w-[70%]">
+                      <p className="text-[11px] text-slate-700">¿Tienen soporte en español?</p>
+                    </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <div className="bg-gradient-to-r from-violet-600 to-indigo-600 rounded-2xl rounded-br-sm px-3 py-2 max-w-[70%]">
+                      <p className="text-[11px] text-white">¡Claro que sí! Somos un equipo hispanohablante 🙌</p>
+                    </div>
+                  </div>
+                  <div className="flex justify-start">
+                    <div className="bg-slate-100 rounded-2xl rounded-bl-sm px-3 py-2 max-w-[70%]">
+                      <p className="text-[11px] text-slate-700">Genial, voy a probarlo hoy mismo</p>
+                    </div>
+                  </div>
+                  {/* Typing preview */}
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full bg-violet-200 flex-shrink-0" />
+                    <div className="bg-slate-100 rounded-2xl rounded-bl-sm px-3 py-2 flex gap-1 items-center">
+                      <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:0ms]" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:150ms]" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:300ms]" />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ─── Social proof numérico ────────────────────────────────────── */}
-      <section style={{ padding: "48px 24px", background: "white", borderBottom: "1px solid #f1f5f9" }}>
-        <div style={{ maxWidth: "760px", margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "32px", textAlign: "center" }}>
-          {[
-            { num: "2 min", label: "tiempo de setup promedio" },
-            { num: "$29", label: "todo incluido, sin sorpresas" },
-            { num: "100%", label: "uptime en producción" },
-          ].map((stat) => (
-            <div key={stat.label}>
-              <div style={{ fontSize: "36px", fontWeight: 800, background: "linear-gradient(135deg,#7c3aed,#4f46e5)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-                {stat.num}
-              </div>
-              <div style={{ fontSize: "13px", color: "#64748b", marginTop: "4px" }}>{stat.label}</div>
-            </div>
-          ))}
+      {/* ─── LOGOS / SOCIAL PROOF ─────────────────────────────────────────── */}
+      <section className="border-y border-slate-100 bg-slate-50 py-8 px-6">
+        <div className="max-w-4xl mx-auto text-center">
+          <p className="text-xs text-slate-400 font-semibold uppercase tracking-widest mb-6">Funciona en cualquier stack</p>
+          <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4">
+            {["Next.js", "React", "Vue", "Nuxt", "WordPress", "Webflow", "Shopify", "Laravel"].map((tech) => (
+              <span key={tech} className="text-sm font-semibold text-slate-400 hover:text-slate-600 transition-colors">
+                {tech}
+              </span>
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* ─── Testimonios ──────────────────────────────────────────────── */}
-      <section style={{ padding: "80px 24px", background: "#f8fafc" }}>
-        <div style={{ maxWidth: "1000px", margin: "0 auto" }}>
-          <div style={{ textAlign: "center", marginBottom: "52px" }}>
-            <h2 style={{ fontSize: "clamp(26px,4vw,34px)", fontWeight: 800, letterSpacing: "-0.5px", marginBottom: "12px" }}>
-              Lo que dicen los founders
+      {/* ─── BENEFICIOS ───────────────────────────────────────────────────── */}
+      <section id="beneficios" className="py-24 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <p className="text-sm font-semibold text-violet-600 mb-3 uppercase tracking-widest">Por qué InboxChat</p>
+            <h2 className="text-4xl font-extrabold text-slate-900 tracking-tight mb-4">
+              Todo lo que necesitás.<br />Nada que no necesitás.
+            </h2>
+            <p className="text-lg text-slate-500 max-w-xl mx-auto">
+              No somos otro Intercom. Somos lo que necesitabas antes de poder pagar Intercom.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {BENEFITS.map((b) => (
+              <div
+                key={b.title}
+                className="group bg-white rounded-2xl border border-slate-200 p-6 hover:border-violet-300 hover:shadow-lg hover:shadow-violet-100/50 transition-all duration-300 hover:-translate-y-0.5"
+              >
+                <div className="text-3xl mb-4">{b.icon}</div>
+                <h3 className="text-base font-bold text-slate-900 mb-2">{b.title}</h3>
+                <p className="text-sm text-slate-500 leading-relaxed"
+                  dangerouslySetInnerHTML={{ __html: b.body }}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ─── HOW IT WORKS ─────────────────────────────────────────────────── */}
+      <section className="bg-gradient-to-b from-slate-900 to-slate-800 py-24 px-6 text-white">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-16">
+            <p className="text-sm font-semibold text-violet-400 mb-3 uppercase tracking-widest">Setup en 3 pasos</p>
+            <h2 className="text-3xl font-extrabold tracking-tight mb-4">Online en menos de 5 minutos</h2>
+            <p className="text-slate-400 max-w-lg mx-auto">Sin devops, sin configuraciones raras. Si sabés pegar código HTML, podés hacerlo.</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {[
+              {
+                step: "01",
+                title: "Registrate",
+                desc: "Creás tu cuenta y workspace en menos de 60 segundos. Sin tarjeta de crédito.",
+              },
+              {
+                step: "02",
+                title: "Instalá el widget",
+                desc: "Copiás el snippet de tu dashboard y lo pegás en el <head> de tu sitio.",
+              },
+              {
+                step: "03",
+                title: "Respondé desde el inbox",
+                desc: "Tus usuarios ven el chat widget. Vos respondés desde tu inbox en tiempo real.",
+              },
+            ].map((s) => (
+              <div key={s.step} className="relative">
+                <div className="text-5xl font-black text-slate-700 mb-4 font-mono">{s.step}</div>
+                <h3 className="text-lg font-bold mb-2">{s.title}</h3>
+                <p className="text-slate-400 text-sm leading-relaxed">{s.desc}</p>
+              </div>
+            ))}
+          </div>
+          <div className="text-center mt-12">
+            <Link
+              href="/signup"
+              className="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white font-bold px-8 py-4 rounded-xl transition-all hover:-translate-y-0.5 shadow-xl shadow-violet-900/50"
+            >
+              Empezar ahora — es gratis
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── TESTIMONIALS ─────────────────────────────────────────────────── */}
+      <section className="py-24 px-6 bg-slate-50">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-14">
+            <p className="text-sm font-semibold text-violet-600 mb-3 uppercase tracking-widest">Social proof</p>
+            <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">
+              Lo que dicen los founders que lo usan
             </h2>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "20px" }}>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {TESTIMONIALS.map((t) => (
-              <div key={t.author} style={{
-                background: "white", borderRadius: "16px", padding: "28px",
-                border: "1px solid #e2e8f0", boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
-              }}>
-                <div style={{ fontSize: "22px", color: "#fbbf24", marginBottom: "14px" }}>★★★★★</div>
-                <p style={{ fontSize: "14px", color: "#374151", lineHeight: 1.7, marginBottom: "20px", fontStyle: "italic" }}>
-                  &ldquo;{t.quote}&rdquo;
-                </p>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  <div style={{
-                    width: "36px", height: "36px", borderRadius: "50%",
-                    background: t.color,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    color: "white", fontWeight: 700, fontSize: "14px", flexShrink: 0,
-                  }}>{t.avatar}</div>
+              <div
+                key={t.author}
+                className="bg-white rounded-2xl border border-slate-200 p-6 hover:shadow-md transition-shadow"
+              >
+                <div className="flex text-amber-400 mb-4 gap-0.5">
+                  {"★★★★★".split("").map((s, i) => <span key={i}>{s}</span>)}
+                </div>
+                <p className="text-sm text-slate-600 leading-relaxed mb-6">&ldquo;{t.quote}&rdquo;</p>
+                <div className="flex items-center gap-3">
+                  <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${t.color} flex items-center justify-center text-white text-sm font-bold`}>
+                    {t.avatar}
+                  </div>
                   <div>
-                    <div style={{ fontSize: "13px", fontWeight: 700, color: "#0f172a" }}>{t.author}</div>
-                    <div style={{ fontSize: "12px", color: "#94a3b8" }}>{t.role}</div>
+                    <p className="text-sm font-semibold text-slate-800">{t.author}</p>
+                    <p className="text-xs text-slate-400">{t.role}</p>
                   </div>
                 </div>
               </div>
@@ -303,270 +465,161 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─── Comparativa vs Intercom ──────────────────────────────────── */}
-      <section style={{ padding: "80px 24px", background: "white" }}>
-        <div style={{ maxWidth: "860px", margin: "0 auto" }}>
-          <div style={{ textAlign: "center", marginBottom: "48px" }}>
-            <h2 style={{ fontSize: "clamp(26px,4vw,36px)", fontWeight: 800, letterSpacing: "-0.5px", marginBottom: "12px" }}>
-              Intercom para los que ya llegaron. InboxChat para los que están en camino.
+      {/* ─── PRICING ──────────────────────────────────────────────────────── */}
+      <section id="precios" className="py-24 px-6">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-14">
+            <p className="text-sm font-semibold text-violet-600 mb-3 uppercase tracking-widest">Precios</p>
+            <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight mb-4">
+              Sin sorpresas. Sin por-asiento.
             </h2>
-            <p style={{ color: "#64748b", fontSize: "16px" }}>Mismas funciones esenciales. Sin el precio de empresa.</p>
+            <p className="text-slate-500">Precios planos. Todas las features incluidas. Escalá cuando estés listo.</p>
           </div>
 
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: "left", padding: "12px 16px", color: "#64748b", fontWeight: 600, borderBottom: "2px solid #e2e8f0" }}>Feature</th>
-                  <th style={{ textAlign: "center", padding: "12px 16px", color: "#64748b", fontWeight: 600, borderBottom: "2px solid #e2e8f0" }}>Intercom Starter</th>
-                  <th style={{ textAlign: "center", padding: "12px 16px", borderBottom: "2px solid #e2e8f0", background: "rgba(124,58,237,0.04)", borderRadius: "8px 8px 0 0" }}>
-                    <span style={{ color: "#7c3aed", fontWeight: 700 }}>InboxChat Pro</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  ["Precio mensual", "$74/mes", "$29/mes"],
-                  ["Operadores", "1 incluido (+$19 c/u)", "Hasta 5 incluidos"],
-                  ["Setup", "30+ pasos de config", "1 línea de código"],
-                  ["Chat en vivo", "✅", "✅"],
-                  ["Inbox unificado", "✅", "✅"],
-                  ["Asignación de conversaciones", "✅", "✅"],
-                  ["Notas internas", "✅", "✅"],
-                  ["Respuestas predefinidas", "✅", "✅"],
-                  ["SLA alerts por email", "✅ ($$$)", "✅ Incluido"],
-                  ["API pública", "✅ ($$$)", "✅ Incluida"],
-                  ["Webhooks salientes", "✅ ($$$)", "✅ Incluidos"],
-                  ["Contrato anual", "Requerido en planes base", "Sin contrato"],
-                  ["Cancela cuando quieras", "❌", "✅"],
-                ].map(([feat, intercom, ic], i) => (
-                  <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                    <td style={{ padding: "11px 16px", color: "#374151", fontWeight: 500 }}>{feat}</td>
-                    <td style={{ padding: "11px 16px", textAlign: "center", color: "#94a3b8" }}>{intercom}</td>
-                    <td style={{ padding: "11px 16px", textAlign: "center", background: "rgba(124,58,237,0.03)", color: "#7c3aed", fontWeight: 600 }}>{ic}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      {/* ─── Cómo funciona ──────────────────────────────────────────── */}
-      <section style={{ padding: "80px 24px", background: "#f8fafc" }}>
-        <div style={{ maxWidth: "900px", margin: "0 auto" }}>
-          <div style={{ textAlign: "center", marginBottom: "52px" }}>
-            <h2 style={{ fontSize: "clamp(26px,4vw,34px)", fontWeight: 800, letterSpacing: "-0.5px", marginBottom: "12px" }}>Listo en 3 pasos</h2>
-            <p style={{ color: "#64748b", fontSize: "16px" }}>Sin servidores. Sin configuración de 30 pasos.</p>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "24px" }}>
-            {[
-              { num: "01", icon: "📝", title: "Creá tu cuenta", desc: "Registrate en 30 segundos. Sin tarjeta de crédito." },
-              { num: "02", icon: "⚡", title: "Pegá 2 líneas de código", desc: "Copiá el snippet de tu dashboard y pegalo en tu <head>." },
-              { num: "03", icon: "💬", title: "Respondé desde el inbox", desc: "Tus usuarios te escriben. Vos respondés en tiempo real desde cualquier dispositivo." },
-            ].map((step) => (
-              <div key={step.num} style={{ background: "white", borderRadius: "16px", padding: "28px", border: "1px solid #e2e8f0" }}>
-                <div style={{ fontSize: "28px", marginBottom: "12px" }}>{step.icon}</div>
-                <div style={{ fontSize: "11px", fontWeight: 700, color: "#7c3aed", letterSpacing: "1px", marginBottom: "8px" }}>PASO {step.num}</div>
-                <h3 style={{ fontSize: "17px", fontWeight: 700, marginBottom: "8px" }}>{step.title}</h3>
-                <p style={{ fontSize: "14px", color: "#64748b", lineHeight: 1.6 }}>{step.desc}</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+            {PLANS.map((plan) => (
+              <div
+                key={plan.name}
+                className={`rounded-2xl border p-7 relative ${
+                  plan.highlight
+                    ? "border-violet-400 bg-gradient-to-b from-violet-50 to-white shadow-xl shadow-violet-200/60 scale-[1.02]"
+                    : "border-slate-200 bg-white"
+                }`}
+              >
+                {plan.badge && (
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
+                    <span className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg shadow-violet-300/50">
+                      {plan.badge}
+                    </span>
+                  </div>
+                )}
+                <div className="mb-5">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-2">{plan.name}</p>
+                  <div className="flex items-end gap-1 mb-1">
+                    <span className="text-4xl font-black text-slate-900">{plan.price}</span>
+                    <span className="text-slate-400 text-sm mb-1.5">{plan.period}</span>
+                  </div>
+                  <p className="text-sm text-slate-500">{plan.desc}</p>
+                </div>
+                <Link
+                  href={plan.href}
+                  className={`block text-center font-semibold text-sm py-3 px-6 rounded-xl transition-all mb-6 ${
+                    plan.highlight
+                      ? "bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700 shadow-md shadow-violet-300/40 hover:shadow-lg hover:-translate-y-px"
+                      : "border border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                  }`}
+                >
+                  {plan.cta}
+                </Link>
+                <ul className="space-y-2.5">
+                  {plan.features.map((f) => (
+                    <li key={f} className="flex items-start gap-2 text-sm text-slate-600">
+                      <svg className={`w-4 h-4 mt-0.5 flex-shrink-0 ${plan.highlight ? "text-violet-500" : "text-emerald-500"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                      {f}
+                    </li>
+                  ))}
+                </ul>
               </div>
             ))}
           </div>
-        </div>
-      </section>
 
-      {/* ─── Features grid ──────────────────────────────────────────── */}
-      <section style={{ padding: "80px 24px", background: "white" }}>
-        <div style={{ maxWidth: "1000px", margin: "0 auto" }}>
-          <div style={{ textAlign: "center", marginBottom: "52px" }}>
-            <h2 style={{ fontSize: "clamp(26px,4vw,34px)", fontWeight: 800, letterSpacing: "-0.5px", marginBottom: "12px" }}>
-              Todo lo que necesitás para no perder un solo cliente
-            </h2>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "20px" }}>
-            {[
-              { icon: "⚡", title: "Real-time", desc: "WebSocket nativo. Mensajes en milisegundos, no en segundos." },
-              { icon: "🏷️", title: "Tags y filtros", desc: "Categorizá conversaciones por tipo de problema o prioridad." },
-              { icon: "🤖", title: "Respuestas rápidas", desc: "Guardá plantillas de respuesta con /atajos." },
-              { icon: "👥", title: "Multi-operador", desc: "Asigná conversaciones. Filtros Mías / Sin asignar / Todas." },
-              { icon: "⏰", title: "SLA alerts", desc: "Email automático si una conv supera el tiempo sin respuesta." },
-              { icon: "📊", title: "Analytics avanzado", desc: "Tasa de resolución, tiempo de respuesta, pico horario." },
-              { icon: "📱", title: "100% mobile", desc: "El inbox funciona perfecto en tu celular cuando estás afuera." },
-              { icon: "🔑", title: "API + Webhooks", desc: "REST API y webhooks HMAC-SHA256 para integraciones propias." },
-            ].map((f) => (
-              <div key={f.title} style={{
-                background: "#f8fafc", borderRadius: "14px", padding: "22px",
-                border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
-              }}>
-                <div style={{ fontSize: "24px", marginBottom: "10px" }}>{f.icon}</div>
-                <h3 style={{ fontSize: "15px", fontWeight: 700, marginBottom: "6px" }}>{f.title}</h3>
-                <p style={{ fontSize: "13px", color: "#64748b", lineHeight: 1.5 }}>{f.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ─── Install snippet ──────────────────────────────────────────── */}
-      <section style={{ padding: "72px 24px", background: "#f8fafc" }}>
-        <div style={{ maxWidth: "680px", margin: "0 auto", textAlign: "center" }}>
-          <h2 style={{ fontSize: "clamp(24px,4vw,32px)", fontWeight: 800, letterSpacing: "-0.5px", marginBottom: "16px" }}>
-            2 líneas. Chat en vivo.
-          </h2>
-          <p style={{ color: "#64748b", fontSize: "16px", marginBottom: "28px" }}>
-            Sin npm install. Sin build steps. Sin configuración de servidores.
+          <p className="text-center text-xs text-slate-400 mt-6">
+            Todos los planes tienen 14 días de trial gratuito. Sin tarjeta de crédito.
           </p>
-          <div style={{
-            background: "#0f172a", borderRadius: "14px", padding: "24px 28px",
-            textAlign: "left", fontSize: "13px", fontFamily: "'Fira Code', 'Cascadia Code', monospace",
-            lineHeight: 1.8, boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
-          }}>
-            <div style={{ color: "#64748b" }}>{"<!-- Pegá esto en el <head> de tu web -->"}</div>
-            <div><span style={{ color: "#7dd3fc" }}>{"<script>"}</span></div>
-            <div style={{ paddingLeft: "16px" }}><span style={{ color: "#94a3b8" }}>{"window.InboxChat = {"}</span></div>
-            <div style={{ paddingLeft: "32px" }}>
-              <span style={{ color: "#fbbf24" }}>{"workspaceKey"}</span>
-              <span style={{ color: "#94a3b8" }}>{": "}</span>
-              <span style={{ color: "#86efac" }}>{'\"tu_workspace_key\"'}</span>
-            </div>
-            <div style={{ paddingLeft: "16px" }}><span style={{ color: "#94a3b8" }}>{"}"}</span></div>
-            <div><span style={{ color: "#7dd3fc" }}>{"</script>"}</span></div>
-            <div>
-              <span style={{ color: "#7dd3fc" }}>{"<script "}</span>
-              <span style={{ color: "#fbbf24" }}>{"src"}</span>
-              <span style={{ color: "#94a3b8" }}>{"="}</span>
-              <span style={{ color: "#86efac" }}>{"\"https://server.inboxchat.app/widget.js\""}</span>
-              <span style={{ color: "#7dd3fc" }}>{" async></script>"}</span>
-            </div>
-          </div>
-          <Link href="/signup" style={{ ...S.btnPrimary, marginTop: "28px", justifyContent: "center" }}>
-            Obtener mi workspace key →
+        </div>
+      </section>
+
+      {/* ─── CTA INTERMEDIO ───────────────────────────────────────────────── */}
+      <section className="bg-gradient-to-r from-violet-600 to-indigo-600 py-20 px-6">
+        <div className="max-w-2xl mx-auto text-center">
+          <h2 className="text-3xl font-extrabold text-white tracking-tight mb-4">
+            Tus usuarios te están escribiendo.
+            <br />¿Estás respondiendo?
+          </h2>
+          <p className="text-violet-200 text-lg mb-8">
+            Cada minuto sin responder es una oportunidad perdida. Instalá InboxChat hoy.
+          </p>
+          <Link
+            href="/signup"
+            className="inline-flex items-center gap-2 bg-white text-violet-700 font-bold text-base px-8 py-4 rounded-xl shadow-xl hover:bg-violet-50 transition-all hover:-translate-y-0.5"
+          >
+            Empezar gratis — 14 días
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            </svg>
           </Link>
+          <p className="text-violet-300 text-xs mt-4">Sin tarjeta · 2 min setup · Cancelá cuando quieras</p>
         </div>
       </section>
 
-      {/* ─── Pricing ──────────────────────────────────────────────────── */}
-      <section style={{ padding: "80px 24px", background: "white" }}>
-        <div style={{ maxWidth: "700px", margin: "0 auto" }}>
-          <div style={{ textAlign: "center", marginBottom: "52px" }}>
-            <h2 style={{ fontSize: "clamp(26px,4vw,34px)", fontWeight: 800, letterSpacing: "-0.5px", marginBottom: "12px" }}>Precio sin letra chica</h2>
-            <p style={{ color: "#64748b", fontSize: "16px" }}>Sin per-seat pricing. Sin sorpresas en la factura.</p>
+      {/* ─── FAQ ──────────────────────────────────────────────────────────── */}
+      <section id="faq" className="py-24 px-6 bg-slate-50">
+        <div className="max-w-2xl mx-auto">
+          <div className="text-center mb-12">
+            <p className="text-sm font-semibold text-violet-600 mb-3 uppercase tracking-widest">FAQ</p>
+            <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Preguntas frecuentes</h2>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
-            {/* Free */}
-            <div style={{ borderRadius: "20px", border: "1px solid #e2e8f0", padding: "32px 28px", background: "#f8fafc" }}>
-              <div style={{ fontSize: "12px", fontWeight: 700, color: "#64748b", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.5px" }}>Free</div>
-              <div style={{ fontSize: "38px", fontWeight: 800, marginBottom: "4px" }}>$0</div>
-              <div style={{ fontSize: "13px", color: "#94a3b8", marginBottom: "24px" }}>para siempre</div>
-              <ul style={{ listStyle: "none", padding: 0, margin: "0 0 24px", display: "flex", flexDirection: "column", gap: "10px" }}>
-                {["100 conversaciones/mes", "1 operador", "Widget embeddable", "Chat en tiempo real", "14 días de prueba Pro"].map((item) => (
-                  <li key={item} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", color: "#374151" }}>
-                    <span style={{ color: "#22c55e", fontWeight: 700 }}>✓</span>{item}
-                  </li>
-                ))}
-              </ul>
-              <Link href="/signup" style={{
-                display: "block", textAlign: "center", padding: "11px",
-                borderRadius: "10px", border: "1px solid #cbd5e1",
-                color: "#374151", textDecoration: "none", fontWeight: 600, fontSize: "14px", background: "white",
-              }}>Empezar gratis</Link>
-            </div>
-            {/* Pro */}
-            <div style={{
-              borderRadius: "20px",
-              background: "linear-gradient(135deg,#7c3aed 0%,#4f46e5 100%)",
-              padding: "32px 28px", position: "relative",
-            }}>
-              <div style={{
-                position: "absolute", top: "14px", right: "14px",
-                background: "rgba(255,255,255,0.2)", borderRadius: "100px",
-                padding: "3px 10px", fontSize: "11px", fontWeight: 700, color: "white",
-              }}>⭐ Popular</div>
-              <div style={{ fontSize: "12px", fontWeight: 700, color: "rgba(255,255,255,0.7)", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.5px" }}>Pro</div>
-              <div style={{ fontSize: "38px", fontWeight: 800, color: "white", marginBottom: "4px" }}>$29</div>
-              <div style={{ fontSize: "13px", color: "rgba(255,255,255,0.6)", marginBottom: "24px" }}>por mes · cancela cuando quieras</div>
-              <ul style={{ listStyle: "none", padding: 0, margin: "0 0 24px", display: "flex", flexDirection: "column", gap: "10px" }}>
-                {["Conversaciones ilimitadas", "Hasta 5 operadores", "API pública incluida", "Webhooks salientes", "SLA alerts", "CSAT analytics", "Soporte email 24h"].map((item) => (
-                  <li key={item} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", color: "rgba(255,255,255,0.9)" }}>
-                    <span style={{ color: "#a3e635", fontWeight: 700 }}>✓</span>{item}
-                  </li>
-                ))}
-              </ul>
-              <Link href="/signup" style={{
-                display: "block", textAlign: "center", padding: "11px",
-                borderRadius: "10px", background: "white", color: "#7c3aed",
-                textDecoration: "none", fontWeight: 700, fontSize: "14px",
-              }}>Empezar con Pro $29/mes →</Link>
-            </div>
-          </div>
-          <p style={{ textAlign: "center", marginTop: "16px", fontSize: "13px", color: "#94a3b8" }}>
-            ¿Necesitás más de 5 operadores?{" "}
-            <Link href="/pricing" style={{ color: "#7c3aed", textDecoration: "none", fontWeight: 600 }}>Ver plan Growth →</Link>
-          </p>
-        </div>
-      </section>
-
-      {/* ─── FAQ ──────────────────────────────────────────────────────── */}
-      <section style={{ padding: "80px 24px", background: "#f8fafc" }}>
-        <div style={{ maxWidth: "640px", margin: "0 auto" }}>
-          <h2 style={{ fontSize: "clamp(24px,4vw,32px)", fontWeight: 800, textAlign: "center", marginBottom: "48px", letterSpacing: "-0.5px" }}>
-            Preguntas frecuentes
-          </h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          <div className="space-y-4">
             {FAQ.map((item) => (
-              <div key={item.q} style={{
-                background: "white", borderRadius: "14px",
-                border: "1px solid #e2e8f0", padding: "20px 24px",
-              }}>
-                <p style={{ fontWeight: 700, color: "#0f172a", fontSize: "15px", margin: "0 0 8px" }}>{item.q}</p>
-                <p style={{ color: "#475569", fontSize: "14px", margin: 0, lineHeight: 1.6 }}>{item.a}</p>
+              <div key={item.q} className="bg-white rounded-xl border border-slate-200 px-6 py-5">
+                <h3 className="font-semibold text-slate-900 text-sm mb-2">{item.q}</h3>
+                <p
+                  className="text-sm text-slate-500 leading-relaxed"
+                  dangerouslySetInnerHTML={{ __html: item.a }}
+                />
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ─── CTA final ────────────────────────────────────────────────── */}
-      <section style={{
-        padding: "80px 24px",
-        background: "linear-gradient(135deg,#7c3aed 0%,#4f46e5 100%)",
-        textAlign: "center",
-      }}>
-        <h2 style={{ fontSize: "clamp(26px,4vw,36px)", fontWeight: 800, color: "white", marginBottom: "16px", letterSpacing: "-0.5px" }}>
-          Tu próximo cliente te está esperando
-        </h2>
-        <p style={{ color: "rgba(255,255,255,0.75)", fontSize: "16px", marginBottom: "32px" }}>
-          14 días de prueba Pro · Sin tarjeta · Setup en 2 minutos · Cancela cuando quieras
-        </p>
-        <Link href="/signup" style={{
-          display: "inline-block", background: "white", color: "#7c3aed",
-          padding: "14px 32px", borderRadius: "12px", textDecoration: "none",
-          fontWeight: 700, fontSize: "15px", boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
-        }}>Crear cuenta gratis →</Link>
-      </section>
-
-      {/* Footer */}
-      <footer style={{ padding: "32px 24px", borderTop: "1px solid #e2e8f0", background: "white" }}>
-        <div style={{ maxWidth: "1080px", margin: "0 auto", display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "12px" }}>
-          <p style={{ fontSize: "13px", color: "#94a3b8", margin: 0 }}>
-            © 2025 InboxChat · Hecho con ☕ para founders early-stage
-          </p>
-          <div style={{ display: "flex", gap: "16px" }}>
-            {[
-              { href: "/pricing", label: "Precios" },
-              { href: "/privacy", label: "Privacidad" },
-              { href: "/terms", label: "Términos" },
-              { href: "mailto:hola@inboxchat.app", label: "Contacto" },
-              { href: "/login", label: "Login" },
-            ].map((l) => (
-              <Link key={l.href} href={l.href} style={{ fontSize: "13px", color: "#94a3b8", textDecoration: "none" }}>{l.label}</Link>
-            ))}
+      {/* ─── FOOTER ───────────────────────────────────────────────────────── */}
+      <footer className="border-t border-slate-200 bg-white py-12 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex flex-col md:flex-row items-start justify-between gap-8 mb-10">
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center shadow-sm">
+                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth="2.2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                </div>
+                <span className="font-bold text-slate-900">InboxChat</span>
+              </div>
+              <p className="text-xs text-slate-400 max-w-xs leading-relaxed">
+                Chat en vivo para founders de SaaS. Sin bloatware, sin $74/mes.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-12 gap-y-4">
+              {[
+                { label: "Producto", links: [{ name: "Precios", href: "#precios" }, { name: "FAQ", href: "#faq" }, { name: "Changelog", href: "#" }] },
+                { label: "Legal", links: [{ name: "Privacy", href: "/privacy" }, { name: "Terms", href: "/terms" }] },
+                { label: "Cuenta", links: [{ name: "Login", href: "/login" }, { name: "Registrarse", href: "/signup" }] },
+              ].map((col) => (
+                <div key={col.label}>
+                  <p className="text-xs font-semibold text-slate-600 uppercase tracking-widest mb-3">{col.label}</p>
+                  <ul className="space-y-2">
+                    {col.links.map((l) => (
+                      <li key={l.name}>
+                        <Link href={l.href} className="text-xs text-slate-400 hover:text-slate-700 transition-colors">{l.name}</Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="border-t border-slate-100 pt-6 flex flex-col sm:flex-row items-center justify-between gap-2">
+            <p className="text-xs text-slate-400">© {new Date().getFullYear()} InboxChat. Hecho con ☕ para founders.</p>
+            <p className="text-xs text-slate-400">
+              ¿Preguntas?{" "}
+              <a href="mailto:hola@inboxchat.app" className="text-violet-600 hover:underline">hola@inboxchat.app</a>
+            </p>
           </div>
         </div>
       </footer>
-
-      <Script id="json-ld" type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
     </div>
   );
 }
