@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -58,7 +58,8 @@ function Avatar({ name, email, size = "lg" }: { name: string | null; email: stri
   );
 }
 
-export default function ContactDetailPage({ params }: { params: { id: string } }) {
+export default function ContactDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const router = useRouter();
   const [contact, setContact] = useState<Contact | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -68,7 +69,7 @@ export default function ContactDetailPage({ params }: { params: { id: string } }
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetch(`${SERVER_URL}/api/contacts/${params.id}`, { headers: getAuthHeaders() })
+    fetch(`${SERVER_URL}/api/contacts/${id}`, { headers: getAuthHeaders() })
       .then((r) => {
         if (r.status === 401) { router.push("/login"); return null; }
         if (r.status === 404) { router.push("/contacts"); return null; }
@@ -83,7 +84,7 @@ export default function ContactDetailPage({ params }: { params: { id: string } }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [params.id, router]);
+  }, [id, router]);
 
   async function saveEdit() {
     if (!contact) return;
