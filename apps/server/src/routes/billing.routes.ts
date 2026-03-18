@@ -99,6 +99,8 @@ export async function billingRoutes(
       conversationCount: billing.conversation_count,
       stripeSubscriptionStatus: billing.stripe_subscription_status,
       hasStripeCustomer: Boolean(billing.stripe_customer_id),
+      // true solo si hay una suscripción REAL de Stripe (no Pro manual)
+      hasStripeSubscription: Boolean(billing.stripe_subscription_id),
       isActive,
     });
   });
@@ -181,6 +183,39 @@ export async function billingRoutes(
     });
 
     return reply.send({ url: session.url });
+  });
+
+  /**
+   * POST /api/billing/cancel
+   * Auto-cancelación para usuarios Pro sin suscripción de Stripe (activación manual o promo code).
+   * Baja el plan a 'trial' con 14 días de gracia.
+   */
+  app.post("/api/billing/cancel", async (request, reply) => {
+    const workspaceId = await resolveWorkspaceId(db, request.headers as Record<string, string | undefined>);
+    if (!workspaceId) return reply.status(401).send({ error: "No autorizado" });
+
+    const billing = await getWorkspaceBilling(db, workspaceId);
+    if (!billing) return reply.status(404).send({ error: "Workspace no encontrado" });
+
+    // Si tiene suscripción de Stripe, deben cancelar desde el portal (no aquí)
+    if (billing.stripe_subscription_id) {
+      return reply.status(400).send({ error: "Usá el portal para cancelar tu suscripción de Stripe" });
+    }
+    if (billing.plan !== 'pro') {
+      return reply.status(400).send({ error: "No estás en plan Pro" });
+    }
+
+    // Downgrade a trial con 14 días de gracia desde hoy
+    const trialUntil = new Date();
+    trialUntil.setDate(trialUntil.getDate() + 14);
+
+    await db`
+      UPDATE workspaces
+      SET plan = 'trial', trial_ends_at = ${trialUntil.toISOString()}
+      WHERE id = ${workspaceId}
+    `;
+
+    return reply.send({ ok: true, trialUntil: trialUntil.toISOString() });
   });
 
 

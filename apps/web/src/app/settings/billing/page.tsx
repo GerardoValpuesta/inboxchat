@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle, ExternalLink, Loader2, Gift, XCircle } from "lucide-react";
+import { CheckCircle, ExternalLink, Loader2, Gift, XCircle, AlertTriangle } from "lucide-react";
 
 const SERVER_URL =
   process.env["NEXT_PUBLIC_SERVER_URL"] ?? "http://localhost:3001";
@@ -22,6 +22,7 @@ interface BillingStatus {
   conversationCount: number;
   stripeSubscriptionStatus: string | null;
   hasStripeCustomer: boolean;
+  hasStripeSubscription: boolean; // true = sub real en Stripe, false = Pro manual/promo
   isActive: boolean;
 }
 
@@ -31,6 +32,9 @@ export default function BillingPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [portalError, setPortalError] = useState(false);
+  const [cancelError, setCancelError] = useState("");
+  const [cancelDone, setCancelDone] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [promoCode, setPromoCode] = useState("");
   const [promoLoading, setPromoLoading] = useState(false);
   const [promoSuccess, setPromoSuccess] = useState("");
@@ -69,15 +73,16 @@ export default function BillingPage() {
         method: "POST",
         headers: getAuthHeaders() as HeadersInit,
       });
-      const data = (await res.json()) as { url?: string; error?: string };
+      const data = (await res.json()) as { url?: string };
       if (data.url) window.location.href = data.url;
     } catch {
-      // silently fail
+      /* ignore */
     } finally {
       setActionLoading(false);
     }
   }
 
+  // Gestionar suscripción (solo para usuarios con sub real en Stripe)
   async function handlePortal() {
     setActionLoading(true);
     setPortalError(false);
@@ -94,6 +99,32 @@ export default function BillingPage() {
       }
     } catch {
       setPortalError(true);
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  // Cancelación self-serve para Pro manual/promo (sin sub de Stripe)
+  async function handleCancelManual() {
+    setActionLoading(true);
+    setCancelError("");
+    try {
+      const res = await fetch(`${SERVER_URL}/api/billing/cancel`, {
+        method: "POST",
+        headers: getAuthHeaders() as HeadersInit,
+      });
+      const data = await res.json() as { ok?: boolean; trialUntil?: string; error?: string };
+      if (res.ok && data.ok) {
+        setCancelDone(true);
+        setShowCancelConfirm(false);
+        // Recargar status
+        const br = await fetch(`${SERVER_URL}/api/billing/status`, { headers: getAuthHeaders() as HeadersInit });
+        if (br.ok) setStatus(await br.json() as BillingStatus);
+      } else {
+        setCancelError(data.error ?? "Error al cancelar. Intentá de nuevo.");
+      }
+    } catch {
+      setCancelError("Error de red. Intentá de nuevo.");
     } finally {
       setActionLoading(false);
     }
@@ -134,8 +165,8 @@ export default function BillingPage() {
   }
 
   const isPro = status?.plan === "pro" && status?.isActive;
-  // Mostrar el portal si el workspace tiene stripe_customer_id (es lo que chequea el endpoint)
-  const hasStripeCustomer = Boolean(status?.hasStripeCustomer);
+  // Tiene sub real en Stripe = puede gestionar desde el portal
+  const hasStripeSub = Boolean(status?.hasStripeSubscription);
 
   return (
     <div className="max-w-lg mx-auto px-6 py-8">
@@ -153,7 +184,7 @@ export default function BillingPage() {
         </p>
       </div>
 
-      {/* Alertas */}
+      {/* Mensajes de estado de pago */}
       {success && (
         <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-medium flex items-center gap-2">
           <CheckCircle className="w-4 h-4 flex-shrink-0" />
@@ -166,82 +197,145 @@ export default function BillingPage() {
           Cancelaste el proceso de pago. Podés intentarlo cuando quieras.
         </div>
       )}
+      {cancelDone && (
+        <div className="mb-6 p-4 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-sm flex items-center gap-2">
+          <CheckCircle className="w-4 h-4 flex-shrink-0 text-slate-400" />
+          Suscripción cancelada. Tenés 14 días de acceso restante.
+        </div>
+      )}
 
       {/* Plan card */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-4">
         {/* Plan header */}
         <div className={`p-6 ${isPro ? "bg-gradient-to-r from-violet-600 to-indigo-600" : "bg-slate-800"}`}>
-          <div className="flex items-center justify-between">
+          <div className="flex items-start justify-between">
             <div>
-              <span className="text-xs font-semibold uppercase tracking-widest text-white/70">
+              <p className="text-xs font-semibold uppercase tracking-widest text-white/70 mb-1">
                 Plan actual
-              </span>
-              <h2 className="text-2xl font-bold text-white mt-1">
+              </p>
+              <h2 className="text-2xl font-bold text-white">
                 {isPro ? "InboxChat Pro" : "Free Trial"}
               </h2>
+              {isPro && hasStripeSub && (
+                <p className="text-white/70 text-sm mt-1">$29 / mes · Renovación automática</p>
+              )}
+              {isPro && !hasStripeSub && activePromo && (
+                <p className="text-white/70 text-sm mt-1">
+                  Activo hasta {new Date(activePromo.proUntil).toLocaleDateString("es-AR", { day: "2-digit", month: "long", year: "numeric" })}
+                </p>
+              )}
             </div>
-            <div className={`px-3 py-1 rounded-full text-xs font-semibold ${
+            <span className={`text-xs font-semibold px-3 py-1 rounded-full ${
               isPro ? "bg-white/20 text-white" : "bg-amber-400/20 text-amber-200"
             }`}>
               {isPro ? "Activo" : "Trial"}
-            </div>
+            </span>
           </div>
-          {isPro && (
-            <p className="text-white/80 text-sm mt-2">$29 / mes · Renovación automática</p>
-          )}
         </div>
 
-        {/* Stats */}
-        <div className="p-6 grid grid-cols-2 gap-4 border-b border-slate-100">
-          <div>
-            <p className="text-xs text-slate-500 uppercase tracking-wide">Conversaciones</p>
-            <p className="text-2xl font-bold text-slate-900 mt-1">
-              {status?.conversationCount ?? 0}
-            </p>
+        {/* Conversaciones */}
+        {isPro && (
+          <div className="px-6 py-4 border-b border-slate-100">
+            <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Conversaciones</p>
+            <p className="text-2xl font-bold text-slate-900">{status?.conversationCount ?? 0}</p>
           </div>
-          {!isPro && status?.trialDaysLeft !== null && (
-            <div>
-              <p className="text-xs text-slate-500 uppercase tracking-wide">Días restantes</p>
-              <p className={`text-2xl font-bold mt-1 ${
-                (status?.trialDaysLeft ?? 0) < 3 ? "text-red-600" : "text-slate-900"
-              }`}>
-                {status?.trialDaysLeft ?? "∞"}
-              </p>
-            </div>
-          )}
-        </div>
+        )}
+
+        {/* Días restantes trial */}
+        {!isPro && status?.trialDaysLeft !== null && (
+          <div className={`px-6 py-3 text-sm font-medium border-b border-slate-100 ${
+            (status?.trialDaysLeft ?? 0) <= 3 ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700"
+          }`}>
+            {(status?.trialDaysLeft ?? 0) <= 0
+              ? "Tu trial expiró."
+              : `${status?.trialDaysLeft} días restantes de trial`}
+          </div>
+        )}
 
         {/* CTA */}
         <div className="p-6 space-y-3">
           {isPro ? (
             <>
-              <p className="text-sm text-slate-600">
-                Gestioná tu suscripción, cambiá el método de pago o cancelá desde el portal de Stripe.
-              </p>
-              <button
-                onClick={() => void handlePortal()}
-                disabled={actionLoading}
-                className="w-full py-3 px-4 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-medium text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {actionLoading ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> Redirigiendo...</>
-                ) : (
-                  <><ExternalLink className="w-4 h-4" /> Gestionar suscripción en Stripe</>
-                )}
-              </button>
+              {hasStripeSub ? (
+                // Tiene sub real en Stripe — gestionar desde portal
+                <>
+                  <p className="text-sm text-slate-600">
+                    Gestioná tu suscripción, cambiá el método de pago o cancelá en cualquier momento.
+                  </p>
+                  <button
+                    onClick={() => void handlePortal()}
+                    disabled={actionLoading}
+                    className="w-full py-3 px-4 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-medium text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {actionLoading ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Redirigiendo...</>
+                    ) : (
+                      <><ExternalLink className="w-4 h-4" /> Gestionar suscripción</>
+                    )}
+                  </button>
+                  {portalError && (
+                    <p className="text-xs text-red-500">
+                      No se pudo abrir el portal. Escribinos a{" "}
+                      <a href="mailto:hola@inboxchat.app" className="underline">hola@inboxchat.app</a>.
+                    </p>
+                  )}
+                </>
+              ) : (
+                // Pro manual / promo code — cancelación self-serve
+                <>
+                  <p className="text-sm text-slate-600">
+                    Tu plan es Pro.{activePromo ? " Fue activado con un código de acceso." : ""}
+                  </p>
+                  {!showCancelConfirm ? (
+                    <button
+                      onClick={() => setShowCancelConfirm(true)}
+                      className="text-sm text-red-500 hover:text-red-700 underline transition-colors"
+                    >
+                      Cancelar suscripción →
+                    </button>
+                  ) : (
+                    <div className="rounded-xl border border-red-200 bg-red-50 p-4 space-y-3">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                        <p className="text-sm text-red-700">
+                          Al cancelar, tendrás 14 días de acceso Pro restante. Después bajás a Free Trial.
+                        </p>
+                      </div>
+                      {cancelError && <p className="text-xs text-red-600">{cancelError}</p>}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => void handleCancelManual()}
+                          disabled={actionLoading}
+                          className="flex-1 py-2 px-3 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                        >
+                          {actionLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Confirmar cancelación"}
+                        </button>
+                        <button
+                          onClick={() => { setShowCancelConfirm(false); setCancelError(""); }}
+                          className="flex-1 py-2 px-3 border border-slate-300 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition-colors"
+                        >
+                          No cancelar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
             </>
           ) : (
+            // No está en Pro — mostrar CTA de upgrade
             <div className="space-y-4">
               <ul className="space-y-2">
                 {[
                   "Conversaciones ilimitadas",
-                  "5 operadores incluidos",
-                  "AI Auto-Reply con Gemini Flash",
-                  "SLA alerts + CSAT analytics",
-                  "API REST + Webhooks",
+                  "Sin límite de tiempo",
+                  "Agentes ilimitados",
+                  "Webhooks & API pública",
+                  "AI Auto-Reply",
+                  "Widget personalizable",
                 ].map((f) => (
                   <li key={f} className="flex items-center gap-2 text-sm text-slate-700">
-                    <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                    <CheckCircle className="w-4 h-4 text-violet-500 flex-shrink-0" />
                     {f}
                   </li>
                 ))}
@@ -249,12 +343,12 @@ export default function BillingPage() {
               <button
                 onClick={() => void handleUpgrade()}
                 disabled={actionLoading}
-                className="w-full py-3 px-4 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-xl font-semibold text-sm transition-all shadow-md shadow-violet-200 disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full py-3 px-4 bg-violet-600 hover:bg-violet-700 text-white rounded-xl font-bold text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {actionLoading ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> Redirigiendo a Stripe...</>
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Procesando...</>
                 ) : (
-                  "Upgrade a Pro — $29/mes"
+                  "Pasarme a Pro — $29/mes →"
                 )}
               </button>
             </div>
@@ -262,7 +356,7 @@ export default function BillingPage() {
         </div>
       </div>
 
-      {/* Sección código de acceso */}
+      {/* Código de acceso */}
       <div className="bg-white rounded-xl border border-slate-200 p-4 mb-4">
         <div className="flex items-center gap-2 mb-3">
           <Gift className="w-4 h-4 text-violet-500" />
@@ -300,36 +394,11 @@ export default function BillingPage() {
         )}
       </div>
 
-      {/* Sección cancelar */}
-      <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 space-y-2">
-        <p className="text-sm font-medium text-slate-700">¿Querés cancelar o gestionar tu suscripción?</p>
-        <p className="text-xs text-slate-500">
-          {isPro
-            ? "Podés cancelar en cualquier momento desde el portal de Stripe. Tu acceso Pro se mantiene hasta el fin del período pagado."
-            : "Estás en el período de prueba gratuita. No hay nada que cancelar — simplemente no hagas el upgrade cuando termine el trial."}
-        </p>
-        {isPro && (
-          <>
-            {portalError && (
-              <p className="text-xs text-red-500">No se pudo abrir el portal. Escribínos a hola@inboxchat.app si el problema persiste.</p>
-            )}
-            <button
-              onClick={() => void handlePortal()}
-              disabled={actionLoading}
-              className="text-xs text-red-500 hover:text-red-700 underline transition-colors disabled:opacity-50"
-            >
-              Cancelar suscripción →
-            </button>
-          </>
-        )}
-      </div>
-
-      <p className="text-center text-xs text-slate-400 mt-4">
-        Pagos procesados de forma segura por{" "}
-        <a href="https://stripe.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-slate-600">
-          Stripe
+      <p className="text-xs text-center text-slate-400">
+        Pagos procesados de forma segura.{" "}
+        <a href="https://stripe.com" target="_blank" rel="noopener noreferrer" className="hover:underline">
+          Cancelá en cualquier momento.
         </a>
-        . Cancelá en cualquier momento.
       </p>
     </div>
   );
