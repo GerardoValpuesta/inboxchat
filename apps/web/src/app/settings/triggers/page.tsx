@@ -49,7 +49,7 @@ export default function TriggersSettingsPage() {
   useEffect(() => {
     fetch(`${SERVER_URL}/api/triggers`, { headers: getAuthHeaders() })
       .then((r) => {
-        if (r.status === 401) { router.push("/login"); return null; }
+        if (r.status === 401) { router.push(`/login?from=${encodeURIComponent(window.location.pathname)}`); return null; }
         return r.json() as Promise<{ triggers: Trigger[] }>;
       })
       .then((d) => { if (d) setTriggers(d.triggers ?? []); })

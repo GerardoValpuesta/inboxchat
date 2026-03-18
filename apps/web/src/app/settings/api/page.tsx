@@ -24,7 +24,7 @@ export default function ApiSettingsPage() {
     setServerUrl(SERVER_URL.replace("localhost:3001", "server.inboxchat.app"));
     fetch(`${SERVER_URL}/api/workspace/me`, { headers: getAuthHeaders() })
       .then((r) => {
-        if (r.status === 401) { router.push("/login"); return null; }
+        if (r.status === 401) { router.push(`/login?from=${encodeURIComponent(window.location.pathname)}`); return null; }
         return r.json() as Promise<{ workspace: { apiKey: string; plan: string } }>;
       })
       .then((d) => { if (d) { setApiKey(d.workspace.apiKey); setPlan(d.workspace.plan); } })

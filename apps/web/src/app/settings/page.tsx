@@ -92,7 +92,7 @@ export default function SettingsPage() {
       .then(async ([billingRes, meRes]) => {
         // Solo redirigir a login en 401, no en errores de red / 5xx
         if (billingRes.status === 401 || meRes.status === 401) {
-          router.push("/login");
+          router.push(`/login?from=${encodeURIComponent(window.location.pathname)}`);
           return;
         }
         if (!billingRes.ok || !meRes.ok) {

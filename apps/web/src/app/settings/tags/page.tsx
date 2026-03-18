@@ -47,7 +47,7 @@ export default function TagsSettingsPage() {
   useEffect(() => {
     fetch(`${SERVER_URL}/api/tags`, { headers: getAuthHeaders() })
       .then((r) => {
-        if (r.status === 401) { router.push("/login"); return null; }
+        if (r.status === 401) { router.push(`/login?from=${encodeURIComponent(window.location.pathname)}`); return null; }
         return r.json() as Promise<{ tags: Tag[] }>;
       })
       .then((d) => { if (d) setTags(d.tags ?? []); })

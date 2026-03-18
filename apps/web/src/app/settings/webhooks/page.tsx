@@ -86,7 +86,7 @@ export default function WebhooksSettingsPage() {
   useEffect(() => {
     Promise.all([
       fetch(`${SERVER_URL}/api/workspace/me`, { headers: getAuthHeaders() }).then((r) => {
-        if (r.status === 401) { router.push("/login"); throw new Error("unauth"); }
+        if (r.status === 401) { router.push(`/login?from=${encodeURIComponent(window.location.pathname)}`); throw new Error("unauth"); }
         return r.json() as Promise<{ workspace: { plan: string } }>;
       }),
       fetch(`${SERVER_URL}/api/webhooks`, { headers: getAuthHeaders() }).then((r) => r.json()),

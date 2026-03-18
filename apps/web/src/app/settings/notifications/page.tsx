@@ -29,7 +29,7 @@ export default function NotificationsSettingsPage() {
     // Cargar configuración del workspace
     fetch(`${SERVER_URL}/api/workspace/me`, { headers: getAuthHeaders() })
       .then((r) => {
-        if (r.status === 401) { router.push("/login"); return null; }
+        if (r.status === 401) { router.push(`/login?from=${encodeURIComponent(window.location.pathname)}`); return null; }
         return r.json() as Promise<{ workspace: { slaMinutes: number } }>;
       })
       .then((d) => { if (d) setSlaMinutes(d.workspace.slaMinutes ?? 10); })

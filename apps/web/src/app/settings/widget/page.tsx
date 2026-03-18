@@ -156,7 +156,7 @@ export default function WidgetSettingsPage() {
     Promise.all([
       fetch(`${SERVER_URL}/api/workspace/me`, { headers: getAuthHeaders() }),
     ]).then(async ([meRes]) => {
-      if (meRes.status === 401) { router.push("/login"); return; }
+      if (meRes.status === 401) { router.push(`/login?from=${encodeURIComponent(window.location.pathname)}`); return; }
       const meData = await meRes.json() as { workspace: { apiKey: string } };
       const key = meData?.workspace?.apiKey;
       if (key) {

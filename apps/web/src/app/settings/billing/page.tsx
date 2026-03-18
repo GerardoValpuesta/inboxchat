@@ -44,7 +44,7 @@ export default function BillingPage() {
     })
       .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
       .then((data: BillingStatus) => setStatus(data))
-      .catch(() => router.push("/login"))
+      .catch(() => router.push(`/login?from=${encodeURIComponent(window.location.pathname)}`))
       .finally(() => setLoading(false));
   }, [router]);
 
